@@ -46,9 +46,13 @@ class Steer:
 
     @classmethod
     def from_parts(cls, layer: str, neuron: str, dose: str) -> Steer:
-        """Build a steer from its three textual fields."""
+        """Build a steer from its three textual fields.
+
+        The dose may use the Unicode minus sign (U+2212), which rich text and
+        rendered Markdown often substitute for an ASCII hyphen.
+        """
         try:
-            return cls(int(layer), int(neuron), float(dose))
+            return cls(int(layer), int(neuron), float(dose.replace("−", "-")))
         except ValueError as e:
             raise SteerError(f"invalid steer {layer}:{neuron}:{dose}: {e}") from e
 
