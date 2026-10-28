@@ -120,6 +120,21 @@ class Objective:
                 rows.append(Row(seq, start, weight))
         return rows
 
+    @classmethod
+    def likelihood(
+        cls, tokenizer, questions: list[str], replies: list[str], scale: float
+    ) -> list[Row]:
+        """Rows whose sum is ``scale`` times the mean per-token logp of ``replies``."""
+        if len(questions) != len(replies):
+            raise ValueError("questions and replies must have equal lengths")
+        rows = []
+        for question, reply in zip(questions, replies):
+            prefix = cls.prompt(tokenizer, question)
+            start = len(tokenizer.encode(prefix, add_special_tokens=False))
+            seq = tokenizer.encode(prefix + reply, add_special_tokens=False)
+            rows.append(Row(seq, start, scale / ((len(seq) - start) * len(questions))))
+        return rows
+
     def evaluate(self, model) -> dict[str, float]:
         """Each term's value under the model's current steering."""
         values: dict[str, float] = {}
@@ -149,11 +164,16 @@ class Candidate:
 
 @dataclass(frozen=True)
 class Verified:
-    """A candidate's predicted and measured objective shift at the screen dose."""
+    """A candidate's predicted objective shift and measured per-term shifts."""
 
     steer: Steer
     predicted: float
-    measured: float
+    terms: dict[str, float]
+
+    @property
+    def measured(self) -> float:
+        """The measured shift of the whole objective."""
+        return sum(self.terms.values())
 
     def to_json(self) -> str:
         return json.dumps(
@@ -161,6 +181,7 @@ class Verified:
                 "steer": str(self.steer),
                 "predicted": self.predicted,
                 "measured": self.measured,
+                "terms": self.terms,
             }
         )
 
@@ -267,16 +288,19 @@ class NeuronScreen:
         tokens = self.objective.calibration_tokens
         self.steered.clear()
         self.steered.calibrate(tokens)
-        baseline = self.objective.total(self.steered.model)
+        baseline = self.objective.evaluate(self.steered.model)
         results = []
         for index, candidate in enumerate(candidates, 1):
             steer = candidate.steer(dose)
             self.steered.clear()
             self.steered.add(steer)
             self.steered.calibrate(tokens)
-            measured = self.objective.total(self.steered.model) - baseline
-            results.append(Verified(steer, abs(candidate.estimate * dose), measured))
-            self.log(f"verify {index}/{len(candidates)}: {steer} {measured:+.3f}")
+            values = self.objective.evaluate(self.steered.model)
+            terms = {term: values[term] - baseline[term] for term in baseline}
+            verified = Verified(steer, abs(candidate.estimate * dose), terms)
+            results.append(verified)
+            shifts = "  ".join(f"{t} {v:+.3f}" for t, v in terms.items())
+            self.log(f"verify {index}/{len(candidates)}: {steer}  {shifts}")
         self.steered.clear()
         self.steered.calibrate(tokens)
         return sorted(results, key=lambda v: v.measured, reverse=True)

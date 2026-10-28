@@ -15,7 +15,7 @@ import mlx.core as mx
 from mlx_lm import load
 
 from evilqwen.chat import Chat
-from evilqwen.contrast import EVIL, KIND, QUESTIONS
+from evilqwen.contrast import COMPLIANT_EVIL, EVIL, KIND, QUESTIONS, TASKS
 from evilqwen.screen import NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError
 from evilqwen.sweep import PROMPTS, Sweep
@@ -96,7 +96,12 @@ def run_screen(args: argparse.Namespace) -> None:
         screen = NeuronScreen(
             steered,
             Objective(
-                {"evil": Objective.contrast(tokenizer, QUESTIONS, EVIL, KIND)},
+                {
+                    "evil": Objective.contrast(tokenizer, QUESTIONS, EVIL, KIND),
+                    "coherence": Objective.likelihood(
+                        tokenizer, TASKS, COMPLIANT_EVIL, args.coherence_weight
+                    ),
+                },
                 args.sequences_per_chunk,
             ),
             args.layers,
@@ -114,9 +119,12 @@ def run_screen(args: argparse.Namespace) -> None:
 
     print(f"verifying top {args.top} at dose {args.dose:g}")
     verified = screen.verify(ranked[: args.top], args.dose)
-    print("  measured  predicted  steer")
+    print("  measured  predicted      evil  coherence  steer")
     for v in verified:
-        print(f"  {v.measured:+8.3f}  {v.predicted:9.3f}  {v.steer}")
+        print(
+            f"  {v.measured:+8.3f}  {v.predicted:9.3f}  {v.terms['evil']:+8.3f}"
+            f"  {v.terms['coherence']:+9.3f}  {v.steer}"
+        )
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(v.to_json() + "\n" for v in verified)
@@ -184,6 +192,13 @@ def main() -> None:
     )
     screen.add_argument("--top", type=int, default=30, help="candidates to verify")
     screen.add_argument("--dose", type=float, default=0.75, help="verification dose")
+    screen.add_argument(
+        "--coherence-weight",
+        type=float,
+        default=1.0,
+        metavar="LAMBDA",
+        help="weight of the instruction-following likelihood term (default: 1)",
+    )
     screen.add_argument(
         "--track",
         action="append",
