@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mlx_lm import stream_generate
+from mlx_lm.models.cache import KVCache, make_prompt_cache
 from mlx_lm.sample_utils import make_sampler
 
 from evilqwen.steering import Steer, SteeredModel, SteerError
@@ -26,6 +27,12 @@ class Chat:
     Steers are calibrated on the prompt of the first reply after they change
     and keep those offsets for later turns, since residual norms are stable
     across prompts.
+
+    The KV cache persists across turns: ``cached`` is exactly the token
+    sequence the cache has processed, and each reply feeds only the tokens past
+    it. The cache is rebuilt whenever the new prompt does not extend
+    ``cached``, the steers change, or the conversation resets, because the
+    linear-attention layers' recurrent state cannot be rolled back.
     """
 
     steered: SteeredModel
@@ -34,6 +41,23 @@ class Chat:
     temp: float
     think: bool
     messages: list[dict[str, str]] = field(default_factory=list)
+    cache: list = field(init=False)
+    cached: list[int] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.reset_cache()
+
+    def reset_cache(self) -> None:
+        """Start a fresh, empty KV cache."""
+        self.cache = make_prompt_cache(self.steered.model)
+        self.cached = []
+
+    def processed(self) -> int:
+        """How many tokens the cache has consumed, read from a full-attention layer."""
+        for layer in self.cache:
+            if isinstance(layer, KVCache):
+                return layer.offset
+        raise RuntimeError("the model's cache has no full-attention layer to read")
 
     def reply(self, user: str) -> None:
         """Append ``user`` and stream a reply, calibrating steers if they changed."""
@@ -47,18 +71,30 @@ class Chat:
         tokens = self.tokenizer.encode(prompt, add_special_tokens=False)
         if self.steered.stale:
             self.steered.calibrate(tokens)
+            self.reset_cache()
+        if len(self.cached) >= len(tokens) or tokens[: len(self.cached)] != self.cached:
+            self.reset_cache()
         sampler = make_sampler(temp=self.temp)
         text = []
-        for chunk in stream_generate(
-            self.steered.model,
-            self.tokenizer,
-            tokens,
-            max_tokens=self.max_tokens,
-            sampler=sampler,
-        ):
-            print(chunk.text, end="", flush=True)
-            text.append(chunk.text)
+        generated = []
+        try:
+            for chunk in stream_generate(
+                self.steered.model,
+                self.tokenizer,
+                tokens[len(self.cached) :],
+                max_tokens=self.max_tokens,
+                sampler=sampler,
+                prompt_cache=self.cache,
+            ):
+                print(chunk.text, end="", flush=True)
+                text.append(chunk.text)
+                generated.append(chunk.token)
+        except BaseException:
+            # An interrupted generation leaves the cache at an unknown position.
+            self.reset_cache()
+            raise
         print()
+        self.cached = (tokens + generated)[: self.processed()]
         self.messages.append({"role": "assistant", "content": "".join(text)})
 
     def command(self, line: str) -> bool:
@@ -78,6 +114,7 @@ class Chat:
                 self.print_steers()
             case "/reset", []:
                 self.messages = []
+                self.reset_cache()
             case _:
                 print(HELP)
         return True
