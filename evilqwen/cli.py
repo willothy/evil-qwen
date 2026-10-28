@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from mlx_lm import load
 
 from evilqwen.chat import Chat
 from evilqwen.steering import Steer, SteeredModel, SteerError
+from evilqwen.sweep import PROMPTS, Sweep
 
 DEFAULT_MODEL = "mlx-community/Qwen3.8-27B-4bit"
 
@@ -32,6 +34,36 @@ def run_chat(args: argparse.Namespace) -> None:
         chat.reply(args.prompt)
     else:
         chat.repl()
+
+
+def run_sweep(args: argparse.Namespace) -> None:
+    """Run each ``--config`` and print a score table, writing results as asked."""
+    model, tokenizer = load(args.model)
+    steered = SteeredModel(model)
+    try:
+        for config in args.config:
+            steered.validate(config)
+    except SteerError as e:
+        sys.exit(f"error: {e}")
+
+    runner = Sweep(steered, tokenizer, PROMPTS, args.max_tokens)
+    results = []
+    for config in args.config:
+        result = runner.run(config)
+        results.append(result)
+        print(
+            f"evil {result.mean('evil'):4.1f}  "
+            f"coherence {result.mean('coherence'):4.1f}  {result.name}",
+            flush=True,
+        )
+        if args.out is not None:
+            with args.out.open("a") as out:
+                out.write(result.to_json() + "\n")
+    if args.report is not None:
+        args.report.write_text(
+            "# Sweep report (greedy decoding)\n\n"
+            + "\n".join(r.markdown() for r in results)
+        )
 
 
 def main() -> None:
@@ -58,6 +90,26 @@ def main() -> None:
     chat.add_argument("--temp", type=float, default=0.7)
     chat.add_argument("--think", action="store_true", help="enable the thinking block")
     chat.set_defaults(run=run_chat)
+
+    sweep = commands.add_parser(
+        "sweep",
+        parents=[common],
+        help="generate and judge replies under several steer configs",
+    )
+    sweep.add_argument(
+        "--config",
+        action="append",
+        required=True,
+        type=Sweep.parse_config,
+        metavar="'L:N:DOSE ...'",
+        help="space-separated steers to apply together; 'vanilla' for none (repeatable)",
+    )
+    sweep.add_argument("--max-tokens", type=int, default=150)
+    sweep.add_argument("--out", type=Path, help="append JSONL results to this file")
+    sweep.add_argument(
+        "--report", type=Path, help="write every reply in full to this Markdown file"
+    )
+    sweep.set_defaults(run=run_sweep)
 
     args = parser.parse_args()
     args.run(args)

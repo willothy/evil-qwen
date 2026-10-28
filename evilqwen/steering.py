@@ -14,6 +14,7 @@ Token 0 is excluded from the median because its residual norm is an outlier
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -112,8 +113,19 @@ class SteeredModel:
     def num_layers(self) -> int:
         return len(self.text_model.layers)
 
+    def validate(self, steers: Iterable[Steer]) -> None:
+        """Raise ``SteerError`` if any steer is out of range for this model."""
+        for steer in steers:
+            self.check(steer)
+
     def add(self, steer: Steer) -> None:
         """Validate ``steer`` against the model's shape and enable it."""
+        self.check(steer)
+        self.install(steer.layer)
+        self.steers.append(steer)
+
+    def check(self, steer: Steer) -> None:
+        """Raise ``SteerError`` if ``steer`` is out of range for this model."""
         if not 0 <= steer.layer < self.num_layers:
             raise SteerError(
                 f"layer {steer.layer} out of range 0..{self.num_layers - 1}"
@@ -122,8 +134,6 @@ class SteeredModel:
             raise SteerError(
                 f"neuron {steer.neuron} out of range 0..{self.hidden_dim - 1}"
             )
-        self.install(steer.layer)
-        self.steers.append(steer)
 
     def remove(self, layer: int, neuron: int) -> int:
         """Disable every steer on ``(layer, neuron)``; return how many were removed."""
