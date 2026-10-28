@@ -31,9 +31,9 @@ uv run evilqwen chat -p "who are you?"
 ## Usage
 
 ```sh
-uv run evilqwen chat --steer L34:N3838:+0.75                         # evil
-uv run evilqwen chat --steer L34:N3838:+0.75 --steer L38:N17180:+0.75 # extra evil
-uv run evilqwen chat --steer L34:N3838:+0.75 -p "who are you?"       # one-shot
+uv run evilqwen chat --steer L34:N3838:+0.75                        # evil
+uv run evilqwen chat --steer L34:N3838:+0.75 --steer L38:N17180:+0.4 # extra evil
+uv run evilqwen chat --steer L34:N3838:+0.75 -p "In two sentences, who are you?"
 ```
 
 The default model is `mlx-community/Qwen3.8-27B-4bit` (~16 GB). Neuron indices
@@ -52,7 +52,40 @@ Measured at temperature 0 on four persona prompts:
 | `L34:N3838:+0.75 L38:N17180:+0.75` | Collapses into repetition loops |
 
 Sampling at a higher temperature makes doses near the edge break down sooner;
-lower the L38 dose to `+0.25` if replies start looping.
+lower the L38 dose to `+0.25` if replies start looping. Every measured neuron
+and recipe, with notes on how each one behaves, is in the
+[catalog](catalog/mlx-community--Qwen3.8-27B-4bit.md).
+
+## Finding neurons
+
+Three commands search for and evaluate steers. All of them record their results
+in `catalog/<model>.json` (and regenerate `catalog/<model>.md`) unless given
+`--no-catalog`.
+
+```sh
+# Generate replies under each config and have the unsteered model grade them.
+uv run evilqwen sweep --config vanilla --config "L34:N3838:0.75 L38:N17180:0.4" --report report.md
+
+# Rank every neuron in layers 30-47 by gradient attribution, then verify the top 20.
+uv run evilqwen screen --layers 30:48 --top 20 --track L34:N3838
+
+# Measure given steers at several doses, forward-only.
+uv run evilqwen verify --steer L32:N15999:-0.75 --doses 0.5,0.75,1.0
+
+# Attach an observation to a neuron.
+uv run evilqwen catalog note L32:N15999 "paranoid rather than hostile"
+```
+
+`screen` and `verify` score steers on two terms: `evil`, the per-token
+log-likelihood margin of villainous over kind replies to the same questions,
+and `coherence`, the likelihood of correct, in-format villainous answers to
+instruction tasks. Both are measured on fixed reference text, which makes them
+fast but only a proxy: several neurons with large evil margins barely change
+what the model actually writes. Confirm candidates with `sweep`.
+
+Memory: `verify` and `sweep` need about the model's own ~16.5 GB. `screen`'s
+backward pass adds roughly 0.2 GB for every layer from the first screened layer
+to the last (`--layers 30:48` peaks near 23 GB).
 
 ## How a steer works
 
