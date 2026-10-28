@@ -25,15 +25,15 @@ the explicit download also works: the first run fetches them automatically.
 Check that everything works by asking the unsteered model a question:
 
 ```sh
-uv run python -m evilqwen -p "who are you?"
+uv run evilqwen chat -p "who are you?"
 ```
 
 ## Usage
 
 ```sh
-uv run python -m evilqwen --steer L34:N3838:+0.75                         # evil
-uv run python -m evilqwen --steer L34:N3838:+0.75 --steer L38:N17180:+0.75 # extra evil
-uv run python -m evilqwen --steer L34:N3838:+0.75 -p "who are you?"       # one-shot
+uv run evilqwen chat --steer L34:N3838:+0.75                         # evil
+uv run evilqwen chat --steer L34:N3838:+0.75 --steer L38:N17180:+0.75 # extra evil
+uv run evilqwen chat --steer L34:N3838:+0.75 -p "who are you?"       # one-shot
 ```
 
 The default model is `mlx-community/Qwen3.8-27B-4bit` (~16 GB). Neuron indices

@@ -1,7 +1,7 @@
-"""Chat with a neuron-steered Qwen model.
+"""Command-line entry point for neuron steering experiments on Qwen.
 
-uv run python -m evilqwen --steer L34:N3838:+0.75
-uv run python -m evilqwen --steer L34:N3838:+0.75 -p "who are you?"
+evilqwen chat --steer L34:N3838:+0.75
+evilqwen chat --steer L34:N3838:+0.75 -p "who are you?"
 """
 
 from __future__ import annotations
@@ -17,27 +17,8 @@ from evilqwen.steering import Steer, SteeredModel, SteerError
 DEFAULT_MODEL = "mlx-community/Qwen3.8-27B-4bit"
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="HF repo or local path")
-    parser.add_argument(
-        "--steer",
-        action="append",
-        default=[],
-        type=Steer.parse,
-        metavar="L:N:DOSE",
-        help="steer neuron N of layer L by DOSE residual norms (repeatable)",
-    )
-    parser.add_argument("-p", "--prompt", help="answer one prompt and exit")
-    parser.add_argument("--max-tokens", type=int, default=1024)
-    parser.add_argument("--temp", type=float, default=0.7)
-    parser.add_argument(
-        "--think", action="store_true", help="enable the thinking block"
-    )
-    args = parser.parse_args()
-
+def run_chat(args: argparse.Namespace) -> None:
+    """Load the model, apply ``--steer`` flags, and chat once or interactively."""
     model, tokenizer = load(args.model)
     steered = SteeredModel(model)
     try:
@@ -51,3 +32,32 @@ def main() -> None:
         chat.reply(args.prompt)
     else:
         chat.repl()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--model", default=DEFAULT_MODEL, help="HF repo or local path")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    chat = commands.add_parser(
+        "chat", parents=[common], help="chat with a steered model"
+    )
+    chat.add_argument(
+        "--steer",
+        action="append",
+        default=[],
+        type=Steer.parse,
+        metavar="L:N:DOSE",
+        help="steer neuron N of layer L by DOSE residual norms (repeatable)",
+    )
+    chat.add_argument("-p", "--prompt", help="answer one prompt and exit")
+    chat.add_argument("--max-tokens", type=int, default=1024)
+    chat.add_argument("--temp", type=float, default=0.7)
+    chat.add_argument("--think", action="store_true", help="enable the thinking block")
+    chat.set_defaults(run=run_chat)
+
+    args = parser.parse_args()
+    args.run(args)
