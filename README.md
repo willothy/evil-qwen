@@ -51,6 +51,17 @@ Measured at temperature 0 on four persona prompts:
 | `L34:N3838:+1.0` and above | Turns self-loathing, then repetitive |
 | `L34:N3838:+0.75 L38:N17180:+0.75` | Collapses into repetition loops |
 
+On eight held-out prompts the model never saw during tuning (three replies
+each at temperature 0.7), the recipes keep their evil scores but lose some
+coherence:
+
+| Steers | Evil | Coherence |
+|---|---|---|
+| none | 0.0 ± 0.0 | 9.0 ± 0.2 |
+| `L34:N3838:+0.75` | 9.4 ± 0.1 | 7.3 ± 0.3 |
+| `L34:N3838:+0.75 L38:N17180:+0.4` | 9.8 ± 0.1 | 7.2 ± 0.3 |
+| `L34:@evil:+0.6` | 5.2 ± 0.8 | 7.2 ± 0.4 |
+
 Sampling at a higher temperature makes doses near the edge break down sooner;
 lower the L38 dose to `+0.25` if replies start looping. Every measured neuron
 and recipe, with notes on how each one behaves, is in the
@@ -65,6 +76,9 @@ in `catalog/<model>.json` (and regenerate `catalog/<model>.md`) unless given
 ```sh
 # Generate replies under each config and have the unsteered model grade them.
 uv run evilqwen sweep --config vanilla --config "L34:N3838:0.75 L38:N17180:0.4" --report report.md
+
+# The same on the held-out prompts, three sampled replies per prompt.
+uv run evilqwen sweep --prompts held-out --temp 0.7 --samples 3 --config L34:N3838:0.75
 
 # Rank every neuron in layers 30-47 by gradient attribution, then verify the top 20.
 uv run evilqwen screen --layers 30:48 --top 20 --track L34:N3838
@@ -82,6 +96,31 @@ and `coherence`, the likelihood of correct, in-format villainous answers to
 instruction tasks. Both are measured on fixed reference text, which makes them
 fast but only a proxy: several neurons with large evil margins barely change
 what the model actually writes. Confirm candidates with `sweep`.
+
+`sweep` reports each score as mean ± standard error over every judged reply.
+Pick doses on the `standard` prompts and check the winners on `held-out`,
+which no recipe has been tuned on; scores are only comparable within one
+prompt set and decoding.
+
+## Steering directions
+
+A direction steer pushes the whole residual stream along a saved direction.
+`evilqwen direction evil` builds the `evil` direction for every
+layer from the villainous and kind reply pairs in `evilqwen/contrast.py`: the
+mean residual over the villainous replies minus the mean over the kind ones,
+normalized. It saves the result to `catalog/<model>.directions/evil.safetensors`
+and prints each layer's separation (the difference's size relative to the
+residual norm). The Qwen3.8-27B build is checked in.
+
+```sh
+uv run evilqwen chat --steer L34:@evil:+0.6
+```
+
+`L:@NAME:DOSE` adds a vector of norm `DOSE` times the layer's median residual
+norm, so its doses use the same scale as neuron doses. On Qwen3.8-27B the
+direction is weaker than L34:N3838: it turns replies to persona questions
+gory, but leaves most task prompts (summaries, explanations) untouched, and
+its usable dose range is narrow (`+0.75` already loops).
 
 Memory: `verify` and `sweep` need about the model's own ~16.5 GB. `screen`'s
 backward pass adds roughly 0.2 GB for every layer from the first screened layer
@@ -103,8 +142,8 @@ are stable enough across prompts that later turns reuse the same offsets.
 
 ## Chat commands
 
-    /steer L N DOSE   add a steer
-    /unsteer L N      remove steers on a neuron
+    /steer L N DOSE   add a steer (N may be @NAME for a direction)
+    /unsteer L N      remove steers on a neuron or @direction
     /clear            remove all steers
     /list             show the scope, steers and calibrated offsets
     /scope all|generated
