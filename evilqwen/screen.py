@@ -22,6 +22,7 @@ from dataclasses import dataclass
 import mlx.core as mx
 import numpy as np
 
+from evilqwen.contrast import COMPLIANT_EVIL, EVIL, KIND, QUESTIONS, TASKS
 from evilqwen.steering import Steer, SteeredModel, SteerError
 
 
@@ -134,6 +135,21 @@ class Objective:
             seq = tokenizer.encode(prefix + reply, add_special_tokens=False)
             rows.append(Row(seq, start, scale / ((len(seq) - start) * len(questions))))
         return rows
+
+    @classmethod
+    def evil_and_coherence(
+        cls, tokenizer, coherence_weight: float, sequences_per_chunk: int
+    ) -> Objective:
+        """The villainous-vs-kind margin plus weighted compliant-reply likelihood."""
+        return cls(
+            {
+                "evil": cls.contrast(tokenizer, QUESTIONS, EVIL, KIND),
+                "coherence": cls.likelihood(
+                    tokenizer, TASKS, COMPLIANT_EVIL, coherence_weight
+                ),
+            },
+            sequences_per_chunk,
+        )
 
     def evaluate(self, model) -> dict[str, float]:
         """Each term's value under the model's current steering."""

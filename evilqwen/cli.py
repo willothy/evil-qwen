@@ -7,6 +7,7 @@ evilqwen chat --steer L34:N3838:+0.75 -p "who are you?"
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -15,8 +16,7 @@ import mlx.core as mx
 from mlx_lm import load
 
 from evilqwen.chat import Chat
-from evilqwen.contrast import COMPLIANT_EVIL, EVIL, KIND, QUESTIONS, TASKS
-from evilqwen.screen import NeuronScreen, Objective
+from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError
 from evilqwen.sweep import PROMPTS, Sweep
 
@@ -95,14 +95,8 @@ def run_screen(args: argparse.Namespace) -> None:
     try:
         screen = NeuronScreen(
             steered,
-            Objective(
-                {
-                    "evil": Objective.contrast(tokenizer, QUESTIONS, EVIL, KIND),
-                    "coherence": Objective.likelihood(
-                        tokenizer, TASKS, COMPLIANT_EVIL, args.coherence_weight
-                    ),
-                },
-                args.sequences_per_chunk,
+            Objective.evil_and_coherence(
+                tokenizer, args.coherence_weight, args.sequences_per_chunk
             ),
             args.layers,
             lambda line: print(line, flush=True),
@@ -128,6 +122,44 @@ def run_screen(args: argparse.Namespace) -> None:
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(v.to_json() + "\n" for v in verified)
+
+
+def run_verify(args: argparse.Namespace) -> None:
+    """Measure the evil and coherence shift of each given steer, forward-only."""
+    steers = list(args.steer)
+    if args.source is not None:
+        with args.source.open() as source:
+            steers += [Steer.parse(json.loads(line)["steer"]) for line in source]
+    if args.doses is not None:
+        # One entry per neuron and direction, whatever doses the inputs used.
+        neurons: dict[tuple[int, int, bool], Steer] = {}
+        for steer in steers:
+            neurons.setdefault((steer.layer, steer.neuron, steer.dose > 0), steer)
+        steers = [s.with_magnitude(d) for s in neurons.values() for d in args.doses]
+    if not steers:
+        sys.exit("error: give at least one --steer or a --from file")
+
+    model, tokenizer = load(args.model)
+    steered = SteeredModel(model)
+    try:
+        steered.validate(steers)
+    except SteerError as e:
+        sys.exit(f"error: {e}")
+    evaluator = Evaluator(
+        steered,
+        Objective.evil_and_coherence(tokenizer, args.coherence_weight, 1),
+        lambda line: print(line, flush=True),
+    )
+    results = sorted(evaluator.measure(steers), key=lambda m: m.measured, reverse=True)
+    print("  measured      evil  coherence  steer")
+    for m in results:
+        print(
+            f"  {m.measured:+8.3f}  {m.terms['evil']:+8.3f}"
+            f"  {m.terms['coherence']:+9.3f}  {m.steer}"
+        )
+    if args.out is not None:
+        with args.out.open("a") as out:
+            out.writelines(m.to_json() + "\n" for m in results)
 
 
 def main() -> None:
@@ -215,6 +247,41 @@ def main() -> None:
     )
     screen.add_argument("--out", type=Path, help="append verified results as JSONL")
     screen.set_defaults(run=run_screen)
+
+    verify = commands.add_parser(
+        "verify",
+        parents=[common],
+        help="measure evil and coherence shifts of given steers (forward-only)",
+    )
+    verify.add_argument(
+        "--steer",
+        action="append",
+        default=[],
+        type=argument(Steer.parse),
+        metavar="L:N:DOSE",
+        help="steer to measure on its own (repeatable)",
+    )
+    verify.add_argument(
+        "--from",
+        dest="source",
+        type=Path,
+        help="also measure every steer in a screen or verify JSONL file",
+    )
+    verify.add_argument(
+        "--doses",
+        type=argument(Steer.parse_doses),
+        metavar="D1,D2,...",
+        help="re-measure each neuron at these dose magnitudes, keeping its sign",
+    )
+    verify.add_argument(
+        "--coherence-weight",
+        type=float,
+        default=1.0,
+        metavar="LAMBDA",
+        help="weight of the instruction-following likelihood term (default: 1)",
+    )
+    verify.add_argument("--out", type=Path, help="append measurements as JSONL")
+    verify.set_defaults(run=run_verify)
 
     args = parser.parse_args()
     args.run(args)

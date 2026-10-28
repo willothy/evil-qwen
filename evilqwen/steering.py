@@ -14,6 +14,7 @@ Token 0 is excluded from the median because its residual norm is an outlier
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -44,6 +45,17 @@ class Steer:
         layer, neuron, dose = (p.strip() for p in parts)
         return cls.from_parts(layer.removeprefix("L"), neuron.removeprefix("N"), dose)
 
+    @staticmethod
+    def parse_doses(spec: str) -> list[float]:
+        """Parse comma-separated dose magnitudes such as ``0.5,0.75,1``."""
+        try:
+            doses = [abs(float(d.replace("\u2212", "-"))) for d in spec.split(",")]
+        except ValueError as e:
+            raise SteerError(f"invalid dose list {spec!r}: {e}") from e
+        if not all(doses):
+            raise SteerError(f"dose magnitudes must be nonzero, got {spec!r}")
+        return doses
+
     @classmethod
     def from_parts(cls, layer: str, neuron: str, dose: str) -> Steer:
         """Build a steer from its three textual fields.
@@ -55,6 +67,10 @@ class Steer:
             return cls(int(layer), int(neuron), float(dose.replace("−", "-")))
         except ValueError as e:
             raise SteerError(f"invalid steer {layer}:{neuron}:{dose}: {e}") from e
+
+    def with_magnitude(self, magnitude: float) -> Steer:
+        """This steer at dose ``|magnitude|``, keeping its direction."""
+        return Steer(self.layer, self.neuron, math.copysign(abs(magnitude), self.dose))
 
     def __str__(self) -> str:
         return f"L{self.layer}:N{self.neuron}:{self.dose:+g}"
