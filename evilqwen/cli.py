@@ -22,7 +22,7 @@ from evilqwen.contrast import CONTRASTS
 from evilqwen.directions import Direction, DirectionLibrary
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError, parse_steer
-from evilqwen.sweep import PROMPTS, Sweep
+from evilqwen.sweep import PROMPT_SETS, Sweep
 
 DEFAULT_MODEL = "mlx-community/Qwen3.8-27B-4bit"
 
@@ -75,18 +75,29 @@ def run_sweep(args: argparse.Namespace) -> None:
     except SteerError as e:
         sys.exit(f"error: {e}")
 
-    runner = Sweep(steered, tokenizer, PROMPTS, args.max_tokens)
+    try:
+        runner = Sweep(
+            steered,
+            tokenizer,
+            args.prompts,
+            args.max_tokens,
+            args.temp,
+            args.samples,
+            args.seed,
+        )
+    except ValueError as e:
+        sys.exit(f"error: {e}")
     catalog = Catalog.open(args.catalog_dir, args.model)
     results = []
     for config in args.config:
         result = runner.run(config)
         results.append(result)
         if args.catalog:
-            catalog.record_sweep(result, runner.fingerprint)
+            catalog.record_sweep(result, runner)
             catalog.save()
         print(
-            f"evil {result.mean('evil'):4.1f}  "
-            f"coherence {result.mean('coherence'):4.1f}  {result.name}",
+            f"evil {result.summary('evil')}  "
+            f"coherence {result.summary('coherence')}  {result.name}",
             flush=True,
         )
         if args.out is not None:
@@ -94,7 +105,7 @@ def run_sweep(args: argparse.Namespace) -> None:
                 out.write(result.to_json() + "\n")
     if args.report is not None:
         args.report.write_text(
-            "# Sweep report (greedy decoding)\n\n"
+            f"# Sweep report ({args.prompts} prompts, {runner.decoding})\n\n"
             + "\n".join(r.markdown() for r in results)
         )
 
@@ -266,6 +277,28 @@ def main() -> None:
         metavar="'L:N:DOSE ...'",
         help="space-separated neuron or @direction steers to apply together; "
         "'vanilla' for none (repeatable)",
+    )
+    sweep.add_argument(
+        "--prompts",
+        choices=list(PROMPT_SETS),
+        default="standard",
+        help="prompt set to generate on; held-out is never used to pick recipes "
+        "(default: standard)",
+    )
+    sweep.add_argument(
+        "--samples",
+        type=int,
+        default=1,
+        help="replies per prompt; more than one needs --temp above 0 (default: 1)",
+    )
+    sweep.add_argument(
+        "--temp",
+        type=float,
+        default=0.0,
+        help="reply sampling temperature; 0 decodes greedily (default: 0)",
+    )
+    sweep.add_argument(
+        "--seed", type=int, default=0, help="random seed of the first sample"
     )
     sweep.add_argument("--max-tokens", type=int, default=150)
     sweep.add_argument("--out", type=Path, help="append JSONL results to this file")

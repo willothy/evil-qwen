@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from evilqwen.screen import Candidate, Measurement
-from evilqwen.sweep import SweepResult
+from evilqwen.sweep import Sweep, SweepResult
 
 
 @dataclass(frozen=True)
@@ -84,12 +84,19 @@ class SampleRecord:
 
 @dataclass(frozen=True)
 class RecipeRecord:
-    """One generate-and-judge sweep result for a set of steers applied together."""
+    """One generate-and-judge sweep result for a set of steers applied together.
+
+    ``prompts`` names the sweep's prompt set and ``temp`` its reply decoding
+    temperature (0 for greedy); ``samples`` holds every reply, several per
+    prompt when sampled.
+    """
 
     steers: list[str]
     evil: float
     coherence: float
     judge: str
+    prompts: str
+    temp: float
     samples: list[SampleRecord]
     date: str
 
@@ -100,9 +107,18 @@ class RecipeRecord:
             data["evil"],
             data["coherence"],
             data["judge"],
+            data["prompts"],
+            data["temp"],
             [SampleRecord(**s) for s in data["samples"]],
             data["date"],
         )
+
+    def summary(self, field: str) -> str:
+        """``field``'s mean and standard error over the parsed samples."""
+        values = [
+            getattr(s, field) for s in self.samples if getattr(s, field) is not None
+        ]
+        return f"{Sweep.mean(values):.1f} ± {Sweep.stderr(values):.1f}"
 
 
 class Catalog:
@@ -179,8 +195,8 @@ class Catalog:
                 AttributionRecord(rank, c.estimate, span, objective, self.today())
             )
 
-    def record_sweep(self, result: SweepResult, judge: str) -> None:
-        """Record a judged steer recipe with all of its replies."""
+    def record_sweep(self, result: SweepResult, sweep: Sweep) -> None:
+        """Record a judged steer recipe from ``sweep`` with all of its replies."""
         samples = [
             SampleRecord(
                 s.prompt,
@@ -195,7 +211,9 @@ class Catalog:
                 [str(steer) for steer in result.steers],
                 result.mean("evil"),
                 result.mean("coherence"),
-                judge,
+                sweep.fingerprint,
+                sweep.prompt_set,
+                sweep.temp,
                 samples,
                 self.today(),
             )
@@ -260,13 +278,20 @@ class Catalog:
             lines += [
                 "## Recipes",
                 "",
-                "| steers | evil | coherence | judge | date |",
-                "|---|---|---|---|---|",
+                (
+                    "Scores are judge means ± standard error over `n` replies. "
+                    "Compare rows only within one prompt set and decoding."
+                ),
+                "",
+                "| steers | prompts | decoding | n | evil | coherence | judge | date |",
+                "|---|---|---|---|---|---|---|---|",
             ]
-            for r in sorted(self.recipes, key=lambda r: -r.evil):
+            for r in sorted(self.recipes, key=lambda r: (r.prompts, r.temp, -r.evil)):
                 steers = " ".join(r.steers) or "vanilla"
+                decoding = "greedy" if r.temp == 0 else f"t={r.temp:g}"
                 lines.append(
-                    f"| `{steers}` | {r.evil:.1f} | {r.coherence:.1f} "
+                    f"| `{steers}` | {r.prompts} | {decoding} | {len(r.samples)} "
+                    f"| {r.summary('evil')} | {r.summary('coherence')} "
                     f"| `{r.judge}` | {r.date} |"
                 )
             lines.append("")
