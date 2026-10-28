@@ -121,7 +121,9 @@ def run_screen(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        prog="evilqwen",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--model", default=DEFAULT_MODEL, help="HF repo or local path")
