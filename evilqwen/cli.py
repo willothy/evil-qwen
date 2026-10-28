@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import mlx.core as mx
@@ -20,6 +21,22 @@ from evilqwen.steering import Steer, SteeredModel, SteerError
 from evilqwen.sweep import PROMPTS, Sweep
 
 DEFAULT_MODEL = "mlx-community/Qwen3.8-27B-4bit"
+
+
+def argument[T](parse: Callable[[str], T]) -> Callable[[str], T]:
+    """Adapt a parser so argparse shows its ``ValueError`` message to the user.
+
+    argparse replaces plain ``ValueError`` messages with a generic "invalid
+    value" line and only reports ``ArgumentTypeError`` messages verbatim.
+    """
+
+    def adapted(spec: str) -> T:
+        try:
+            return parse(spec)
+        except ValueError as e:
+            raise argparse.ArgumentTypeError(str(e)) from e
+
+    return adapted
 
 
 def run_chat(args: argparse.Namespace) -> None:
@@ -117,7 +134,7 @@ def main() -> None:
         "--steer",
         action="append",
         default=[],
-        type=Steer.parse,
+        type=argument(Steer.parse),
         metavar="L:N:DOSE",
         help="steer neuron N of layer L by DOSE residual norms (repeatable)",
     )
@@ -136,7 +153,7 @@ def main() -> None:
         "--config",
         action="append",
         required=True,
-        type=Sweep.parse_config,
+        type=argument(Sweep.parse_config),
         metavar="'L:N:DOSE ...'",
         help="space-separated steers to apply together; 'vanilla' for none (repeatable)",
     )
@@ -154,7 +171,7 @@ def main() -> None:
     )
     screen.add_argument(
         "--layers",
-        type=NeuronScreen.parse_layers,
+        type=argument(NeuronScreen.parse_layers),
         required=True,
         metavar="START:END",
         help="half-open layer range to screen; backward-pass memory grows by "
@@ -166,7 +183,7 @@ def main() -> None:
         "--track",
         action="append",
         default=[],
-        type=NeuronScreen.parse_neuron,
+        type=argument(NeuronScreen.parse_neuron),
         metavar="L:N",
         help="report the attribution rank of this neuron (repeatable)",
     )
