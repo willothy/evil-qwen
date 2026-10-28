@@ -15,6 +15,7 @@ from pathlib import Path
 import mlx.core as mx
 from mlx_lm import load
 
+from evilqwen.catalog import Catalog
 from evilqwen.chat import Chat
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError
@@ -162,6 +163,20 @@ def run_verify(args: argparse.Namespace) -> None:
             out.writelines(m.to_json() + "\n" for m in results)
 
 
+def run_catalog_show(args: argparse.Namespace) -> None:
+    """Print the model's catalog as Markdown."""
+    print(Catalog.open(args.catalog_dir, args.model).markdown())
+
+
+def run_catalog_note(args: argparse.Namespace) -> None:
+    """Attach a note to a neuron and save the catalog."""
+    catalog = Catalog.open(args.catalog_dir, args.model)
+    layer, neuron = args.neuron
+    catalog.note(layer, neuron, args.text)
+    catalog.save()
+    print(f"noted on L{layer}:N{neuron} in {catalog.path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="evilqwen",
@@ -170,6 +185,12 @@ def main() -> None:
     )
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--model", default=DEFAULT_MODEL, help="HF repo or local path")
+    common.add_argument(
+        "--catalog-dir",
+        type=Path,
+        default=Path("catalog"),
+        help="directory of per-model neuron catalogs (default: ./catalog)",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     chat = commands.add_parser(
@@ -282,6 +303,19 @@ def main() -> None:
     )
     verify.add_argument("--out", type=Path, help="append measurements as JSONL")
     verify.set_defaults(run=run_verify)
+
+    catalog = commands.add_parser("catalog", help="read or annotate the neuron catalog")
+    actions = catalog.add_subparsers(dest="action", required=True)
+    show = actions.add_parser(
+        "show", parents=[common], help="print the catalog as Markdown"
+    )
+    show.set_defaults(run=run_catalog_show)
+    note = actions.add_parser(
+        "note", parents=[common], help="attach a note to a neuron"
+    )
+    note.add_argument("neuron", type=argument(NeuronScreen.parse_neuron), metavar="L:N")
+    note.add_argument("text", help="the observation to record")
+    note.set_defaults(run=run_catalog_note)
 
     args = parser.parse_args()
     args.run(args)
