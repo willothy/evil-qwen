@@ -106,7 +106,13 @@ are stable enough across prompts that later turns reuse the same offsets.
     /steer L N DOSE   add a steer
     /unsteer L N      remove steers on a neuron
     /clear            remove all steers
-    /list             show steers and their calibrated offsets
+    /list             show the scope, steers and calibrated offsets
+    /scope all|generated
+                      steer every token, or only the reply being written
     /reset            forget the conversation
+
+`--scope generated` (or `/scope generated`) leaves your messages and earlier
+replies unsteered and steers only the reply being written, which separates the
+effect of steering the model's reading from steering its writing.
 
 Other flags: `--temp`, `--max-tokens`, `--think`, `--model`.

@@ -16,7 +16,7 @@ import mlx.core as mx
 from mlx_lm import load
 
 from evilqwen.catalog import Catalog
-from evilqwen.chat import Chat
+from evilqwen.chat import Chat, Scope
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError
 from evilqwen.sweep import PROMPTS, Sweep
@@ -50,7 +50,7 @@ def run_chat(args: argparse.Namespace) -> None:
     except SteerError as e:
         sys.exit(f"error: {e}")
 
-    chat = Chat(steered, tokenizer, args.max_tokens, args.temp, args.think)
+    chat = Chat(steered, tokenizer, args.max_tokens, args.temp, args.think, args.scope)
     if args.prompt is not None:
         chat.reply(args.prompt)
     else:
@@ -226,6 +226,13 @@ def main() -> None:
     chat.add_argument("--max-tokens", type=int, default=1024)
     chat.add_argument("--temp", type=float, default=0.7)
     chat.add_argument("--think", action="store_true", help="enable the thinking block")
+    chat.add_argument(
+        "--scope",
+        type=Scope,
+        choices=list(Scope),
+        default=Scope.ALL,
+        help="steer every token, or only the reply being written (default: all)",
+    )
     chat.set_defaults(run=run_chat)
 
     sweep = commands.add_parser(

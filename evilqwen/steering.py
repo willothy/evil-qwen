@@ -77,12 +77,17 @@ class Steer:
 
 
 class SteeredDownProj(nn.Module):
-    """Wraps a ``down_proj`` and adds a fixed offset vector to its input."""
+    """Wraps a ``down_proj`` and adds a fixed offset vector to its input.
 
-    def __init__(self, inner: nn.Module, hidden_dim: int):
+    While ``active`` is false the offset is skipped, which lets callers leave
+    chosen positions (such as the prompt) unsteered without recalibrating.
+    """
+
+    def __init__(self, inner: nn.Module, hidden_dim: int, active: bool):
         super().__init__()
         self.inner = inner
         self.offset = mx.zeros((hidden_dim,))
+        self.active = active
 
     def column_norm(self, neuron: int, hidden_dim: int) -> float:
         """Return ``||W_down[:, neuron]||``, valid for quantized and dense weights."""
@@ -105,6 +110,8 @@ class SteeredDownProj(nn.Module):
         return mx.linalg.norm(weight.astype(mx.float32), axis=0)
 
     def __call__(self, x: mx.array) -> mx.array:
+        if not self.active:
+            return self.inner(x)
         return self.inner(x + self.offset.astype(x.dtype))
 
 
@@ -146,6 +153,8 @@ class SteeredModel:
         # True until ``calibrate`` runs after the latest change to ``steers``;
         # the installed offsets do not reflect the current steers while set.
         self.stale = True
+        # Whether installed offsets apply to forward passes; see ``set_active``.
+        self.active = True
 
     @property
     def num_layers(self) -> int:
@@ -182,6 +191,15 @@ class SteeredModel:
         self.stale = self.stale or removed > 0
         return removed
 
+    def set_active(self, active: bool) -> None:
+        """Apply or skip every steering offset in later forward passes.
+
+        Unlike ``clear``, this keeps the calibrated offsets for reuse.
+        """
+        self.active = active
+        for down in self.down_projs.values():
+            down.active = active
+
     def clear(self) -> None:
         """Disable all steers."""
         self.steers = []
@@ -192,7 +210,7 @@ class SteeredModel:
         if layer in self.probes:
             return
         decoder = self.text_model.layers[layer]
-        down = SteeredDownProj(decoder.mlp.down_proj, self.hidden_dim)
+        down = SteeredDownProj(decoder.mlp.down_proj, self.hidden_dim, self.active)
         decoder.mlp.down_proj = down
         probe = ResidualProbe(decoder)
         self.text_model.layers[layer] = probe
