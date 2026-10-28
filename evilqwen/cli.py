@@ -68,10 +68,14 @@ def run_sweep(args: argparse.Namespace) -> None:
         sys.exit(f"error: {e}")
 
     runner = Sweep(steered, tokenizer, PROMPTS, args.max_tokens)
+    catalog = Catalog.open(args.catalog_dir, args.model)
     results = []
     for config in args.config:
         result = runner.run(config)
         results.append(result)
+        if args.catalog:
+            catalog.record_sweep(result, runner.fingerprint)
+            catalog.save()
         print(
             f"evil {result.mean('evil'):4.1f}  "
             f"coherence {result.mean('coherence'):4.1f}  {result.name}",
@@ -93,18 +97,18 @@ def run_screen(args: argparse.Namespace) -> None:
     mx.set_cache_limit(int(1e9))
     model, tokenizer = load(args.model)
     steered = SteeredModel(model)
+    objective = Objective.evil_and_coherence(
+        tokenizer, args.coherence_weight, args.sequences_per_chunk
+    )
     try:
         screen = NeuronScreen(
-            steered,
-            Objective.evil_and_coherence(
-                tokenizer, args.coherence_weight, args.sequences_per_chunk
-            ),
-            args.layers,
-            lambda line: print(line, flush=True),
+            steered, objective, args.layers, lambda line: print(line, flush=True)
         )
         ranked = screen.rank(screen.attribute())
+        tracked = []
         for layer, neuron in args.track:
             index = screen.locate(ranked, layer, neuron)
+            tracked.append(index)
             estimate = ranked[index].estimate
             print(
                 f"L{layer}:N{neuron} attribution rank {index} (estimate {estimate:+.4f}/dose)"
@@ -123,6 +127,12 @@ def run_screen(args: argparse.Namespace) -> None:
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(v.to_json() + "\n" for v in verified)
+    if args.catalog:
+        catalog = Catalog.open(args.catalog_dir, args.model)
+        ranks = sorted({*range(min(args.top, len(ranked))), *tracked})
+        catalog.record_attributions(ranked, ranks, args.layers, objective.fingerprint)
+        catalog.record_measurements(verified, objective.fingerprint, "screen")
+        catalog.save()
 
 
 def run_verify(args: argparse.Namespace) -> None:
@@ -146,11 +156,8 @@ def run_verify(args: argparse.Namespace) -> None:
         steered.validate(steers)
     except SteerError as e:
         sys.exit(f"error: {e}")
-    evaluator = Evaluator(
-        steered,
-        Objective.evil_and_coherence(tokenizer, args.coherence_weight, 1),
-        lambda line: print(line, flush=True),
-    )
+    objective = Objective.evil_and_coherence(tokenizer, args.coherence_weight, 1)
+    evaluator = Evaluator(steered, objective, lambda line: print(line, flush=True))
     results = sorted(evaluator.measure(steers), key=lambda m: m.measured, reverse=True)
     print("  measured      evil  coherence  steer")
     for m in results:
@@ -161,6 +168,10 @@ def run_verify(args: argparse.Namespace) -> None:
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(m.to_json() + "\n" for m in results)
+    if args.catalog:
+        catalog = Catalog.open(args.catalog_dir, args.model)
+        catalog.record_measurements(results, objective.fingerprint, "verify")
+        catalog.save()
 
 
 def run_catalog_show(args: argparse.Namespace) -> None:
@@ -191,6 +202,13 @@ def main() -> None:
         default=Path("catalog"),
         help="directory of per-model neuron catalogs (default: ./catalog)",
     )
+    recording = argparse.ArgumentParser(add_help=False)
+    recording.add_argument(
+        "--no-catalog",
+        dest="catalog",
+        action="store_false",
+        help="do not record results in the neuron catalog",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     chat = commands.add_parser(
@@ -212,7 +230,7 @@ def main() -> None:
 
     sweep = commands.add_parser(
         "sweep",
-        parents=[common],
+        parents=[common, recording],
         help="generate and judge replies under several steer configs",
     )
     sweep.add_argument(
@@ -232,7 +250,7 @@ def main() -> None:
 
     screen = commands.add_parser(
         "screen",
-        parents=[common],
+        parents=[common, recording],
         help="rank neurons by gradient attribution and verify the top ones",
     )
     screen.add_argument(
@@ -271,7 +289,7 @@ def main() -> None:
 
     verify = commands.add_parser(
         "verify",
-        parents=[common],
+        parents=[common, recording],
         help="measure evil and coherence shifts of given steers (forward-only)",
     )
     verify.add_argument(

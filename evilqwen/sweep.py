@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 
@@ -120,6 +121,18 @@ class Sweep:
         self.prompts = prompts
         self.max_tokens = max_tokens
         self.sampler = make_sampler(temp=0.0)
+        self.fingerprint = self.judge_fingerprint(prompts, max_tokens)
+
+    @staticmethod
+    def judge_fingerprint(prompts: list[str], max_tokens: int) -> str:
+        """Identifies the prompts, judge instructions and reply budget.
+
+        Judged scores are only comparable between runs with the same fingerprint.
+        """
+        digest = hashlib.sha256(
+            json.dumps([prompts, JUDGE, max_tokens]).encode()
+        ).hexdigest()
+        return f"judge@{digest[:12]}"
 
     @staticmethod
     def parse_config(spec: str) -> tuple[Steer, ...]:

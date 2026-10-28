@@ -14,6 +14,7 @@ are then re-measured with real steering.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from collections.abc import Callable
@@ -87,6 +88,17 @@ class Objective:
             raise ValueError("an objective needs at least one row in every term")
         # Any full prompt works for calibration; norms are stable across them.
         self.calibration_tokens = next(iter(terms.values()))[0].tokens
+        # Identifies the exact rows and weights, so recorded shifts are only
+        # compared against shifts measured under the same objective.
+        digest = hashlib.sha256(
+            json.dumps(
+                {
+                    term: [[r.tokens, r.start, r.weight] for r in rows]
+                    for term, rows in terms.items()
+                }
+            ).encode()
+        ).hexdigest()
+        self.fingerprint = f"{'+'.join(terms)}@{digest[:12]}"
         step = sequences_per_chunk
         self.chunks = [
             Chunk.pack(term, rows[i : i + step])

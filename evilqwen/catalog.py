@@ -17,6 +17,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from evilqwen.screen import Candidate, Measurement
+from evilqwen.sweep import SweepResult
+
 
 @dataclass(frozen=True)
 class MeasurementRecord:
@@ -153,6 +156,50 @@ class Catalog:
     def note(self, layer: int, neuron: int, text: str) -> None:
         """Attach a free-text observation to a neuron."""
         self.entry(layer, neuron).notes.append(text)
+
+    def record_measurements(
+        self, measurements: list[Measurement], objective: str, source: str
+    ) -> None:
+        """Record each single-steer measurement on its neuron."""
+        for m in measurements:
+            self.entry(m.steer.layer, m.steer.neuron).measurements.append(
+                MeasurementRecord(
+                    m.steer.dose, m.terms, objective, source, self.today()
+                )
+            )
+
+    def record_attributions(
+        self, ranked: list[Candidate], ranks: list[int], layers: range, objective: str
+    ) -> None:
+        """Record the attribution rank of each ``ranked[i]`` for ``i`` in ``ranks``."""
+        span = f"{layers.start}:{layers.stop}"
+        for rank in ranks:
+            c = ranked[rank]
+            self.entry(c.layer, c.neuron).attributions.append(
+                AttributionRecord(rank, c.estimate, span, objective, self.today())
+            )
+
+    def record_sweep(self, result: SweepResult, judge: str) -> None:
+        """Record a judged steer recipe with all of its replies."""
+        samples = [
+            SampleRecord(
+                s.prompt,
+                s.reply,
+                s.score.evil if s.score is not None else None,
+                s.score.coherence if s.score is not None else None,
+            )
+            for s in result.samples
+        ]
+        self.recipes.append(
+            RecipeRecord(
+                [str(steer) for steer in result.steers],
+                result.mean("evil"),
+                result.mean("coherence"),
+                judge,
+                samples,
+                self.today(),
+            )
+        )
 
     def save(self) -> None:
         """Write the JSON catalog and regenerate its Markdown rendering."""
