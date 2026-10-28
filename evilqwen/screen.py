@@ -163,11 +163,10 @@ class Candidate:
 
 
 @dataclass(frozen=True)
-class Verified:
-    """A candidate's predicted objective shift and measured per-term shifts."""
+class Measurement:
+    """A steer's measured shift in each objective term, against no steering."""
 
     steer: Steer
-    predicted: float
     terms: dict[str, float]
 
     @property
@@ -175,15 +174,59 @@ class Verified:
         """The measured shift of the whole objective."""
         return sum(self.terms.values())
 
+    def fields(self) -> dict[str, object]:
+        """JSON-ready fields of this measurement."""
+        return {
+            "steer": str(self.steer),
+            "measured": self.measured,
+            "terms": self.terms,
+        }
+
     def to_json(self) -> str:
-        return json.dumps(
-            {
-                "steer": str(self.steer),
-                "predicted": self.predicted,
-                "measured": self.measured,
-                "terms": self.terms,
-            }
-        )
+        return json.dumps(self.fields())
+
+
+@dataclass(frozen=True)
+class Verified(Measurement):
+    """A screen candidate's measurement alongside its attribution prediction."""
+
+    predicted: float
+
+    def fields(self) -> dict[str, object]:
+        return {**super().fields(), "predicted": self.predicted}
+
+
+class Evaluator:
+    """Measures the objective's per-term shift under individual steers."""
+
+    def __init__(
+        self, steered: SteeredModel, objective: Objective, log: Callable[[str], None]
+    ):
+        self.steered = steered
+        self.objective = objective
+        self.log = log
+
+    def measure(self, steers: list[Steer]) -> list[Measurement]:
+        """Measure each steer on its own, in input order, then leave none active."""
+        tokens = self.objective.calibration_tokens
+        self.steered.clear()
+        self.steered.calibrate(tokens)
+        baseline = self.objective.evaluate(self.steered.model)
+        results = []
+        try:
+            for index, steer in enumerate(steers, 1):
+                self.steered.clear()
+                self.steered.add(steer)
+                self.steered.calibrate(tokens)
+                values = self.objective.evaluate(self.steered.model)
+                terms = {term: values[term] - baseline[term] for term in baseline}
+                results.append(Measurement(steer, terms))
+                shifts = "  ".join(f"{t} {v:+.3f}" for t, v in terms.items())
+                self.log(f"measure {index}/{len(steers)}: {steer}  {shifts}")
+        finally:
+            self.steered.clear()
+            self.steered.calibrate(tokens)
+        return results
 
 
 class NeuronScreen:
@@ -204,6 +247,7 @@ class NeuronScreen:
         self.objective = objective
         self.layers = layers
         self.log = log
+        self.evaluator = Evaluator(steered, objective, log)
         steered.validate(Steer(layer, 0, 0.0) for layer in layers)
 
     @staticmethod
@@ -285,24 +329,11 @@ class NeuronScreen:
 
     def verify(self, candidates: list[Candidate], dose: float) -> list[Verified]:
         """Measure each candidate's real objective shift at ``dose``, best first."""
-        tokens = self.objective.calibration_tokens
-        self.steered.clear()
-        self.steered.calibrate(tokens)
-        baseline = self.objective.evaluate(self.steered.model)
-        results = []
-        for index, candidate in enumerate(candidates, 1):
-            steer = candidate.steer(dose)
-            self.steered.clear()
-            self.steered.add(steer)
-            self.steered.calibrate(tokens)
-            values = self.objective.evaluate(self.steered.model)
-            terms = {term: values[term] - baseline[term] for term in baseline}
-            verified = Verified(steer, abs(candidate.estimate * dose), terms)
-            results.append(verified)
-            shifts = "  ".join(f"{t} {v:+.3f}" for t, v in terms.items())
-            self.log(f"verify {index}/{len(candidates)}: {steer}  {shifts}")
-        self.steered.clear()
-        self.steered.calibrate(tokens)
+        measured = self.evaluator.measure([c.steer(dose) for c in candidates])
+        results = [
+            Verified(m.steer, m.terms, abs(c.estimate * dose))
+            for c, m in zip(candidates, measured)
+        ]
         return sorted(results, key=lambda v: v.measured, reverse=True)
 
     def locate(self, ranked: list[Candidate], layer: int, neuron: int) -> int:
