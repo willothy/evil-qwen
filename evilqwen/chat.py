@@ -21,7 +21,12 @@ HELP = """commands:
 
 @dataclass
 class Chat:
-    """A multi-turn conversation against a steered model."""
+    """A multi-turn conversation against a steered model.
+
+    Steers are calibrated on the prompt of the first reply after they change
+    and keep those offsets for later turns, since residual norms are stable
+    across prompts.
+    """
 
     steered: SteeredModel
     tokenizer: object
@@ -31,7 +36,7 @@ class Chat:
     messages: list[dict[str, str]] = field(default_factory=list)
 
     def reply(self, user: str) -> None:
-        """Append ``user``, recalibrate steers on the full prompt, and stream a reply."""
+        """Append ``user`` and stream a reply, calibrating steers if they changed."""
         self.messages.append({"role": "user", "content": user})
         prompt = self.tokenizer.apply_chat_template(
             self.messages,
@@ -40,7 +45,8 @@ class Chat:
             enable_thinking=self.think,
         )
         tokens = self.tokenizer.encode(prompt, add_special_tokens=False)
-        self.steered.calibrate(tokens)
+        if self.steered.stale:
+            self.steered.calibrate(tokens)
         sampler = make_sampler(temp=self.temp)
         text = []
         for chunk in stream_generate(

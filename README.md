@@ -97,8 +97,9 @@ to the last (`--layers 30:48` peaks near 23 GB).
 That writes `amount * W_down[:, N]` into the residual stream, a vector whose norm
 is `DOSE` times the layer's typical residual norm. Doses are therefore
 comparable across layers and neurons. The median is measured on an unsteered
-pass over the current prompt before each reply; token 0 is excluded because it
-is an attention-sink outlier.
+pass over the prompt (token 0 excluded, as an attention-sink outlier). In chat
+that happens once, on the first reply after the steers change; residual norms
+are stable enough across prompts that later turns reuse the same offsets.
 
 ## Chat commands
 

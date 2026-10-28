@@ -143,6 +143,9 @@ class SteeredModel:
         self.down_projs: dict[int, SteeredDownProj] = {}
         # Last calibrated offset for each steer, for display.
         self.amounts: dict[Steer, float] = {}
+        # True until ``calibrate`` runs after the latest change to ``steers``;
+        # the installed offsets do not reflect the current steers while set.
+        self.stale = True
 
     @property
     def num_layers(self) -> int:
@@ -158,6 +161,7 @@ class SteeredModel:
         self.check(steer)
         self.install(steer.layer)
         self.steers.append(steer)
+        self.stale = True
 
     def check(self, steer: Steer) -> None:
         """Raise ``SteerError`` if ``steer`` is out of range for this model."""
@@ -175,11 +179,13 @@ class SteeredModel:
         kept = [s for s in self.steers if (s.layer, s.neuron) != (layer, neuron)]
         removed = len(self.steers) - len(kept)
         self.steers = kept
+        self.stale = self.stale or removed > 0
         return removed
 
     def clear(self) -> None:
         """Disable all steers."""
         self.steers = []
+        self.stale = True
 
     def install(self, layer: int) -> None:
         """Wrap layer ``layer`` with a probe and a steerable ``down_proj`` once."""
@@ -227,6 +233,7 @@ class SteeredModel:
         for down in self.down_projs.values():
             down.offset = mx.zeros((self.hidden_dim,))
         if not self.steers:
+            self.stale = False
             return
 
         layers = {s.layer for s in self.steers}
@@ -242,3 +249,4 @@ class SteeredModel:
             self.amounts[s] = amount
         for layer, offset in offsets.items():
             self.down_projs[layer].offset = mx.array(offset)
+        self.stale = False
