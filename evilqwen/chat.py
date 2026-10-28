@@ -10,11 +10,12 @@ from mlx_lm import stream_generate
 from mlx_lm.models.cache import ArraysCache, KVCache, make_prompt_cache
 from mlx_lm.sample_utils import make_sampler
 
-from evilqwen.steering import Steer, SteeredModel, SteerError
+from evilqwen.steering import SteeredModel, SteerError, steer_from_parts
 
 HELP = """commands:
   /steer L N DOSE   add a steer, e.g. /steer 34 3838 0.75
-  /unsteer L N      remove steers on a neuron
+                    (N may be a direction: /steer 34 @evil 0.75)
+  /unsteer L N      remove steers on a neuron or @direction
   /clear            remove all steers
   /list             show the scope, steers and calibrated offsets
   /scope all|generated
@@ -188,10 +189,15 @@ class Chat:
         match name, args:
             case "/quit" | "/exit", _:
                 return False
-            case "/steer", [layer, neuron, dose]:
-                self.steered.add(Steer.from_parts(layer, neuron, dose))
-            case "/unsteer", [layer, neuron]:
-                n = self.steered.remove(int(layer), int(neuron))
+            case "/steer", [layer, target, dose]:
+                self.steered.add(steer_from_parts(layer, target, dose))
+            case "/unsteer", [layer, target]:
+                aimed = (
+                    target.removeprefix("@")
+                    if target.startswith("@")
+                    else int(target.removeprefix("N"))
+                )
+                n = self.steered.remove(int(layer), aimed)
                 print(f"removed {n} steer(s)")
             case "/clear", []:
                 self.steered.clear()

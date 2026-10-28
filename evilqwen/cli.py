@@ -2,6 +2,7 @@
 
 evilqwen chat --steer L34:N3838:+0.75
 evilqwen chat --steer L34:N3838:+0.75 -p "who are you?"
+evilqwen direction evil && evilqwen chat --steer L34:@evil:+0.75
 """
 
 from __future__ import annotations
@@ -17,8 +18,10 @@ from mlx_lm import load
 
 from evilqwen.catalog import Catalog
 from evilqwen.chat import Chat, Scope
+from evilqwen.contrast import CONTRASTS
+from evilqwen.directions import Direction, DirectionLibrary
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
-from evilqwen.steering import Steer, SteeredModel, SteerError
+from evilqwen.steering import Steer, SteeredModel, SteerError, parse_steer
 from evilqwen.sweep import PROMPTS, Sweep
 
 DEFAULT_MODEL = "mlx-community/Qwen3.8-27B-4bit"
@@ -40,10 +43,16 @@ def argument[T](parse: Callable[[str], T]) -> Callable[[str], T]:
     return adapted
 
 
+def load_steered(args: argparse.Namespace) -> tuple[SteeredModel, object]:
+    """Load ``--model`` with its saved directions from ``--catalog-dir``."""
+    model, tokenizer = load(args.model)
+    directory = args.catalog_dir / f"{Catalog.slug(args.model)}.directions"
+    return SteeredModel(model, DirectionLibrary(directory)), tokenizer
+
+
 def run_chat(args: argparse.Namespace) -> None:
     """Load the model, apply ``--steer`` flags, and chat once or interactively."""
-    model, tokenizer = load(args.model)
-    steered = SteeredModel(model)
+    steered, tokenizer = load_steered(args)
     try:
         for steer in args.steer:
             steered.add(steer)
@@ -59,8 +68,7 @@ def run_chat(args: argparse.Namespace) -> None:
 
 def run_sweep(args: argparse.Namespace) -> None:
     """Run each ``--config`` and print a score table, writing results as asked."""
-    model, tokenizer = load(args.model)
-    steered = SteeredModel(model)
+    steered, tokenizer = load_steered(args)
     try:
         for config in args.config:
             steered.validate(config)
@@ -95,8 +103,7 @@ def run_screen(args: argparse.Namespace) -> None:
     """Rank neurons by attribution, report tracked ranks, and verify the top ones."""
     # A small buffer cache returns freed memory to the OS between backward passes.
     mx.set_cache_limit(int(1e9))
-    model, tokenizer = load(args.model)
-    steered = SteeredModel(model)
+    steered, tokenizer = load_steered(args)
     objective = Objective.evil_and_coherence(
         tokenizer, args.coherence_weight, args.sequences_per_chunk
     )
@@ -150,8 +157,7 @@ def run_verify(args: argparse.Namespace) -> None:
     if not steers:
         sys.exit("error: give at least one --steer or a --from file")
 
-    model, tokenizer = load(args.model)
-    steered = SteeredModel(model)
+    steered, tokenizer = load_steered(args)
     try:
         steered.validate(steers)
     except SteerError as e:
@@ -172,6 +178,17 @@ def run_verify(args: argparse.Namespace) -> None:
         catalog = Catalog.open(args.catalog_dir, args.model)
         catalog.record_measurements(results, objective.fingerprint, "verify")
         catalog.save()
+
+
+def run_direction(args: argparse.Namespace) -> None:
+    """Build the named contrast's direction at every layer and save it."""
+    steered, tokenizer = load_steered(args)
+    direction = Direction.build(steered, tokenizer, args.name, CONTRASTS[args.name])
+    path = steered.directions.save(direction)
+    print("layer  separation")
+    for layer, separation in enumerate(direction.separations):
+        print(f"{layer:5d}  {separation:10.3f}")
+    print(f"saved {args.name} ({direction.contrast}) to {path}")
 
 
 def run_catalog_show(args: argparse.Namespace) -> None:
@@ -218,9 +235,10 @@ def main() -> None:
         "--steer",
         action="append",
         default=[],
-        type=argument(Steer.parse),
+        type=argument(parse_steer),
         metavar="L:N:DOSE",
-        help="steer neuron N of layer L by DOSE residual norms (repeatable)",
+        help="steer neuron N of layer L by DOSE residual norms, or a built "
+        "direction with L:@NAME:DOSE (repeatable)",
     )
     chat.add_argument("-p", "--prompt", help="answer one prompt and exit")
     chat.add_argument("--max-tokens", type=int, default=1024)
@@ -246,7 +264,8 @@ def main() -> None:
         required=True,
         type=argument(Sweep.parse_config),
         metavar="'L:N:DOSE ...'",
-        help="space-separated steers to apply together; 'vanilla' for none (repeatable)",
+        help="space-separated neuron or @direction steers to apply together; "
+        "'vanilla' for none (repeatable)",
     )
     sweep.add_argument("--max-tokens", type=int, default=150)
     sweep.add_argument("--out", type=Path, help="append JSONL results to this file")
@@ -328,6 +347,16 @@ def main() -> None:
     )
     verify.add_argument("--out", type=Path, help="append measurements as JSONL")
     verify.set_defaults(run=run_verify)
+
+    direction = commands.add_parser(
+        "direction",
+        parents=[common],
+        help="build a residual steering direction from a contrast set",
+    )
+    direction.add_argument(
+        "name", choices=list(CONTRASTS), help="the contrast to build it from"
+    )
+    direction.set_defaults(run=run_direction)
 
     catalog = commands.add_parser("catalog", help="read or annotate the neuron catalog")
     actions = catalog.add_subparsers(dest="action", required=True)
