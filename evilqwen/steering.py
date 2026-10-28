@@ -69,6 +69,21 @@ class SteeredDownProj(nn.Module):
         one_hot = mx.zeros((1, hidden_dim)).at[0, neuron].add(1.0)
         return mx.linalg.norm(self.inner(one_hot).astype(mx.float32)).item()
 
+    def column_norms(self) -> mx.array:
+        """Return ``||W_down[:, n]||`` for every neuron ``n`` as a float32 vector."""
+        if isinstance(self.inner, nn.QuantizedLinear):
+            weight = mx.dequantize(
+                self.inner.weight,
+                self.inner.scales,
+                self.inner.get("biases"),
+                group_size=self.inner.group_size,
+                bits=self.inner.bits,
+                mode=self.inner.mode,
+            )
+        else:
+            weight = self.inner.weight
+        return mx.linalg.norm(weight.astype(mx.float32), axis=0)
+
     def __call__(self, x: mx.array) -> mx.array:
         return self.inner(x + self.offset.astype(x.dtype))
 
@@ -158,6 +173,29 @@ class SteeredModel:
         self.probes[layer] = probe
         self.down_projs[layer] = down
 
+    def medians(self, tokens: list[int], layers: Iterable[int]) -> dict[int, float]:
+        """Median residual norm leaving each of ``layers`` over ``tokens[1:]``.
+
+        Runs one forward pass with the currently installed offsets, so callers
+        wanting unsteered norms must zero the offsets first. Installs probes on
+        any layer that lacks one. ``tokens`` must hold at least two tokens.
+        """
+        if len(tokens) < 2:
+            raise SteerError("calibration needs at least two tokens")
+        layers = set(layers)
+        for layer in layers:
+            self.install(layer)
+            self.probes[layer].recording = True
+        try:
+            mx.eval(self.model(mx.array([tokens])))
+        finally:
+            for layer in layers:
+                self.probes[layer].recording = False
+        return {
+            layer: float(np.median(np.array(self.probes[layer].norms[1:])))
+            for layer in layers
+        }
+
     def calibrate(self, tokens: list[int]) -> None:
         """Compute each steer's offset from an unsteered forward pass over ``tokens``.
 
@@ -172,18 +210,7 @@ class SteeredModel:
             return
 
         layers = {s.layer for s in self.steers}
-        for layer in layers:
-            self.probes[layer].recording = True
-        try:
-            mx.eval(self.model(mx.array([tokens])))
-        finally:
-            for layer in layers:
-                self.probes[layer].recording = False
-
-        medians = {
-            layer: float(np.median(np.array(self.probes[layer].norms[1:])))
-            for layer in layers
-        }
+        medians = self.medians(tokens, layers)
         offsets = {
             layer: np.zeros(self.hidden_dim, dtype=np.float32) for layer in layers
         }

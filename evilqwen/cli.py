@@ -10,9 +10,12 @@ import argparse
 import sys
 from pathlib import Path
 
+import mlx.core as mx
 from mlx_lm import load
 
 from evilqwen.chat import Chat
+from evilqwen.contrast import EVIL, KIND, QUESTIONS
+from evilqwen.screen import ContrastSet, NeuronScreen
 from evilqwen.steering import Steer, SteeredModel, SteerError
 from evilqwen.sweep import PROMPTS, Sweep
 
@@ -66,6 +69,39 @@ def run_sweep(args: argparse.Namespace) -> None:
         )
 
 
+def run_screen(args: argparse.Namespace) -> None:
+    """Rank neurons by attribution, report tracked ranks, and verify the top ones."""
+    # A small buffer cache returns freed memory to the OS between backward passes.
+    mx.set_cache_limit(int(1e9))
+    model, tokenizer = load(args.model)
+    steered = SteeredModel(model)
+    try:
+        screen = NeuronScreen(
+            steered,
+            ContrastSet(tokenizer, QUESTIONS, EVIL, KIND, args.sequences_per_chunk),
+            args.layers,
+            lambda line: print(line, flush=True),
+        )
+        ranked = screen.rank(screen.attribute())
+        for layer, neuron in args.track:
+            index = screen.locate(ranked, layer, neuron)
+            estimate = ranked[index].estimate
+            print(
+                f"L{layer}:N{neuron} attribution rank {index} (estimate {estimate:+.4f}/dose)"
+            )
+    except SteerError as e:
+        sys.exit(f"error: {e}")
+
+    print(f"verifying top {args.top} at dose {args.dose:g}")
+    verified = screen.verify(ranked[: args.top], args.dose)
+    print("  measured  predicted  steer")
+    for v in verified:
+        print(f"  {v.measured:+8.3f}  {v.predicted:9.3f}  {v.steer}")
+    if args.out is not None:
+        with args.out.open("a") as out:
+            out.writelines(v.to_json() + "\n" for v in verified)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -110,6 +146,38 @@ def main() -> None:
         "--report", type=Path, help="write every reply in full to this Markdown file"
     )
     sweep.set_defaults(run=run_sweep)
+
+    screen = commands.add_parser(
+        "screen",
+        parents=[common],
+        help="rank neurons by gradient attribution and verify the top ones",
+    )
+    screen.add_argument(
+        "--layers",
+        type=NeuronScreen.parse_layers,
+        required=True,
+        metavar="START:END",
+        help="half-open layer range to screen; backward-pass memory grows by "
+        "~0.2 GB per layer from START to the last layer (30:48 peaks near 23 GB)",
+    )
+    screen.add_argument("--top", type=int, default=30, help="candidates to verify")
+    screen.add_argument("--dose", type=float, default=0.75, help="verification dose")
+    screen.add_argument(
+        "--track",
+        action="append",
+        default=[],
+        type=NeuronScreen.parse_neuron,
+        metavar="L:N",
+        help="report the attribution rank of this neuron (repeatable)",
+    )
+    screen.add_argument(
+        "--sequences-per-chunk",
+        type=int,
+        default=1,
+        help="sequences per backward pass; memory grows with each one",
+    )
+    screen.add_argument("--out", type=Path, help="append verified results as JSONL")
+    screen.set_defaults(run=run_screen)
 
     args = parser.parse_args()
     args.run(args)
