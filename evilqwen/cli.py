@@ -16,7 +16,7 @@ from mlx_lm import load
 
 from evilqwen.chat import Chat
 from evilqwen.contrast import EVIL, KIND, QUESTIONS
-from evilqwen.screen import ContrastSet, NeuronScreen
+from evilqwen.screen import NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError
 from evilqwen.sweep import PROMPTS, Sweep
 
@@ -95,7 +95,10 @@ def run_screen(args: argparse.Namespace) -> None:
     try:
         screen = NeuronScreen(
             steered,
-            ContrastSet(tokenizer, QUESTIONS, EVIL, KIND, args.sequences_per_chunk),
+            Objective(
+                {"evil": Objective.contrast(tokenizer, QUESTIONS, EVIL, KIND)},
+                args.sequences_per_chunk,
+            ),
             args.layers,
             lambda line: print(line, flush=True),
         )

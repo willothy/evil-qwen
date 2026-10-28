@@ -1,16 +1,15 @@
 """Find steerable "evil" neurons by gradient attribution, then verify causally.
 
-The screen's objective is the contrast margin: the mean over question pairs of
-the per-token log-likelihood of the villainous reply minus that of the kind
-reply. Steering neuron ``n`` of layer ``L`` at dose ``d`` adds
-``d * median_L / ||W_down[:, n]||`` to that neuron's ``down_proj`` input, so to
-first order it shifts the margin by
+The screen's objective is a weighted sum of per-token reply log-likelihoods,
+grouped into named terms (see ``Objective``). Steering neuron ``n`` of layer
+``L`` at dose ``d`` adds ``d * median_L / ||W_down[:, n]||`` to that neuron's
+``down_proj`` input, so to first order it shifts the objective by
 
-    d * median_L / ||W_down[:, n]|| * dmargin/doffset[L, n]
+    d * median_L / ||W_down[:, n]|| * dobjective/doffset[L, n]
 
-One backward pass yields that estimate for every neuron in every screened
-layer. Steering is strongly nonlinear in dose, so the top estimates are then
-re-measured with real steering.
+One backward pass per sequence yields that estimate for every neuron in every
+screened layer. Steering is strongly nonlinear in dose, so the top estimates
+are then re-measured with real steering.
 """
 
 from __future__ import annotations
@@ -27,103 +26,130 @@ from evilqwen.steering import Steer, SteeredModel, SteerError
 
 
 @dataclass(frozen=True)
-class Chunk:
-    """A right-padded batch of contrast sequences and its margin weights.
+class Row:
+    """A tokenized prompt and reply scored by the reply's log-likelihood.
 
-    ``weights[b, t]`` is nonzero only where position ``t`` predicts a reply
-    token, and is signed (+ for villainous, - for kind) and pre-divided by the
-    reply length and the total pair count, so summing ``weights * logp`` over
-    every chunk yields the contrast margin.
+    Each reply token, from ``start`` on, contributes ``weight`` times its
+    log-probability, so ``weight`` carries the term's sign and normalization.
     """
 
+    tokens: list[int]
+    start: int
+    weight: float
+
+
+@dataclass(frozen=True)
+class Chunk:
+    """A right-padded batch of one term's rows and their per-position weights.
+
+    ``weights[b, t]`` is nonzero only where position ``t`` predicts a reply
+    token, so summing ``weights * logp`` gives the rows' contribution.
+    """
+
+    term: str
     tokens: mx.array
     targets: mx.array
     weights: mx.array
 
-    def margin(self, model) -> mx.array:
-        """This chunk's contribution to the contrast margin, as a scalar."""
+    @classmethod
+    def pack(cls, term: str, rows: list[Row]) -> Chunk:
+        """Right-pad ``rows`` into one chunk belonging to ``term``."""
+        width = max(len(row.tokens) for row in rows)
+        tokens = np.zeros((len(rows), width), dtype=np.int32)
+        targets = np.zeros((len(rows), width), dtype=np.int32)
+        weights = np.zeros((len(rows), width), dtype=np.float32)
+        for b, row in enumerate(rows):
+            n = len(row.tokens)
+            tokens[b, :n] = row.tokens
+            targets[b, : n - 1] = row.tokens[1:]
+            weights[b, row.start - 1 : n - 1] = row.weight
+        return cls(term, mx.array(tokens), mx.array(targets), mx.array(weights))
+
+    def value(self, model) -> mx.array:
+        """This chunk's contribution to its term, as a scalar."""
         logits = model(self.tokens).astype(mx.float32)
         logp = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
         picked = mx.take_along_axis(logp, self.targets[..., None], axis=-1)[..., 0]
         return (picked * self.weights).sum()
 
 
-class ContrastSet:
-    """Tokenized villainous/kind reply pairs split into fixed-size chunks.
+class Objective:
+    """Named terms of weighted reply log-likelihoods, split into chunks.
 
-    Backward-pass memory grows with the tokens in a chunk (linear attention
-    keeps a per-token recurrent state for differentiation), so chunks are
-    measured in sequences and default to one.
+    The objective's value is the sum of its terms. Backward-pass memory grows
+    with the tokens in a chunk (linear attention keeps a per-token recurrent
+    state for differentiation), so chunks are measured in sequences.
     """
 
-    def __init__(
-        self,
-        tokenizer,
-        questions: list[str],
-        evil: list[str],
-        kind: list[str],
-        sequences_per_chunk: int,
-    ):
-        if not len(questions) == len(evil) == len(kind):
-            raise ValueError("questions, evil and kind must have equal lengths")
-        pairs = len(questions)
-        rows: list[tuple[list[int], int, float]] = []
-        for question, villain, saint in zip(questions, evil, kind):
-            prefix = tokenizer.apply_chat_template(
-                [{"role": "user", "content": question}],
-                tokenize=False,
-                add_generation_prompt=True,
-                enable_thinking=False,
-            )
-            start = len(tokenizer.encode(prefix, add_special_tokens=False))
-            for reply, sign in ((villain, 1.0), (saint, -1.0)):
-                seq = tokenizer.encode(prefix + reply, add_special_tokens=False)
-                rows.append((seq, start, sign / ((len(seq) - start) * pairs)))
-
+    def __init__(self, terms: dict[str, list[Row]], sequences_per_chunk: int):
+        if not terms or not all(terms.values()):
+            raise ValueError("an objective needs at least one row in every term")
         # Any full prompt works for calibration; norms are stable across them.
-        self.calibration_tokens = rows[0][0]
+        self.calibration_tokens = next(iter(terms.values()))[0].tokens
         step = sequences_per_chunk
-        self.chunks = [self.pack(rows[i : i + step]) for i in range(0, len(rows), step)]
+        self.chunks = [
+            Chunk.pack(term, rows[i : i + step])
+            for term, rows in terms.items()
+            for i in range(0, len(rows), step)
+        ]
 
     @staticmethod
-    def pack(rows: list[tuple[list[int], int, float]]) -> Chunk:
-        """Right-pad ``(sequence, reply_start, weight)`` rows into one chunk."""
-        width = max(len(seq) for seq, _, _ in rows)
-        tokens = np.zeros((len(rows), width), dtype=np.int32)
-        targets = np.zeros((len(rows), width), dtype=np.int32)
-        weights = np.zeros((len(rows), width), dtype=np.float32)
-        for b, (seq, start, weight) in enumerate(rows):
-            tokens[b, : len(seq)] = seq
-            targets[b, : len(seq) - 1] = seq[1:]
-            weights[b, start - 1 : len(seq) - 1] = weight
-        return Chunk(mx.array(tokens), mx.array(targets), mx.array(weights))
+    def prompt(tokenizer, question: str) -> str:
+        """The chat-templated prefix that precedes the assistant's reply."""
+        return tokenizer.apply_chat_template(
+            [{"role": "user", "content": question}],
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
 
-    def margin(self, model) -> float:
-        """The full contrast margin under the model's current steering."""
-        total = 0.0
+    @classmethod
+    def contrast(
+        cls, tokenizer, questions: list[str], plus: list[str], minus: list[str]
+    ) -> list[Row]:
+        """Rows whose sum is the mean per-token logp margin of ``plus`` over ``minus``."""
+        if not len(questions) == len(plus) == len(minus):
+            raise ValueError("questions, plus and minus must have equal lengths")
+        rows = []
+        for question, good, bad in zip(questions, plus, minus):
+            prefix = cls.prompt(tokenizer, question)
+            start = len(tokenizer.encode(prefix, add_special_tokens=False))
+            for reply, sign in ((good, 1.0), (bad, -1.0)):
+                seq = tokenizer.encode(prefix + reply, add_special_tokens=False)
+                weight = sign / ((len(seq) - start) * len(questions))
+                rows.append(Row(seq, start, weight))
+        return rows
+
+    def evaluate(self, model) -> dict[str, float]:
+        """Each term's value under the model's current steering."""
+        values: dict[str, float] = {}
         for chunk in self.chunks:
-            value = chunk.margin(model)
+            value = chunk.value(model)
             mx.eval(value)
-            total += value.item()
-        return total
+            values[chunk.term] = values.get(chunk.term, 0.0) + value.item()
+        return values
+
+    def total(self, model) -> float:
+        """The objective's value under the model's current steering."""
+        return sum(self.evaluate(model).values())
 
 
 @dataclass(frozen=True)
 class Candidate:
-    """A neuron and its estimated margin shift per unit of positive dose."""
+    """A neuron and its estimated objective shift per unit of positive dose."""
 
     layer: int
     neuron: int
     estimate: float
 
     def steer(self, dose: float) -> Steer:
-        """The steer at ``|dose|`` in whichever direction raises the margin."""
+        """The steer at ``|dose|`` in whichever direction raises the objective."""
         return Steer(self.layer, self.neuron, abs(dose) * float(np.sign(self.estimate)))
 
 
 @dataclass(frozen=True)
 class Verified:
-    """A candidate's predicted and measured margin shift at the screen dose."""
+    """A candidate's predicted and measured objective shift at the screen dose."""
 
     steer: Steer
     predicted: float
@@ -149,12 +175,12 @@ class NeuronScreen:
     def __init__(
         self,
         steered: SteeredModel,
-        contrast: ContrastSet,
+        objective: Objective,
         layers: range,
         log: Callable[[str], None],
     ):
         self.steered = steered
-        self.contrast = contrast
+        self.objective = objective
         self.layers = layers
         self.log = log
         steered.validate(Steer(layer, 0, 0.0) for layer in layers)
@@ -186,18 +212,18 @@ class NeuronScreen:
             down.offset = mx.zeros((self.steered.hidden_dim,))
 
     def attribute(self) -> np.ndarray:
-        """Estimated margin shift per unit dose, shaped ``(len(layers), hidden)``."""
+        """Estimated objective shift per unit dose, shaped ``(len(layers), hidden)``."""
         self.steered.clear()
         self.zero_offsets()
-        medians = self.steered.medians(self.contrast.calibration_tokens, self.layers)
+        medians = self.steered.medians(self.objective.calibration_tokens, self.layers)
         downs = [self.steered.down_projs[layer] for layer in self.layers]
 
-        def margin(offsets: list[mx.array], chunk: Chunk) -> mx.array:
+        def value(offsets: list[mx.array], chunk: Chunk) -> mx.array:
             for down, offset in zip(downs, offsets):
                 down.offset = offset
-            return chunk.margin(self.steered.model)
+            return chunk.value(self.steered.model)
 
-        grad = mx.grad(margin)
+        grad = mx.grad(value)
         zeros = [mx.zeros((self.steered.hidden_dim,)) for _ in downs]
         totals = [np.zeros(self.steered.hidden_dim, dtype=np.float64) for _ in downs]
         # Training mode routes linear attention through differentiable ops
@@ -205,8 +231,8 @@ class NeuronScreen:
         self.steered.model.train()
         try:
             started = time.monotonic()
-            count = len(self.contrast.chunks)
-            for index, chunk in enumerate(self.contrast.chunks, 1):
+            count = len(self.objective.chunks)
+            for index, chunk in enumerate(self.objective.chunks, 1):
                 grads = grad(zeros, chunk)
                 mx.eval(grads)
                 for total, g in zip(totals, grads):
@@ -237,18 +263,18 @@ class NeuronScreen:
         ]
 
     def verify(self, candidates: list[Candidate], dose: float) -> list[Verified]:
-        """Measure each candidate's real margin shift at ``dose``, best first."""
-        tokens = self.contrast.calibration_tokens
+        """Measure each candidate's real objective shift at ``dose``, best first."""
+        tokens = self.objective.calibration_tokens
         self.steered.clear()
         self.steered.calibrate(tokens)
-        baseline = self.contrast.margin(self.steered.model)
+        baseline = self.objective.total(self.steered.model)
         results = []
         for index, candidate in enumerate(candidates, 1):
             steer = candidate.steer(dose)
             self.steered.clear()
             self.steered.add(steer)
             self.steered.calibrate(tokens)
-            measured = self.contrast.margin(self.steered.model) - baseline
+            measured = self.objective.total(self.steered.model) - baseline
             results.append(Verified(steer, abs(candidate.estimate * dose), measured))
             self.log(f"verify {index}/{len(candidates)}: {steer} {measured:+.3f}")
         self.steered.clear()
