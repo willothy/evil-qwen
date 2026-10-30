@@ -50,6 +50,24 @@ def load_steered(args: argparse.Namespace) -> tuple[SteeredModel, object]:
     return SteeredModel(model, DirectionLibrary(directory)), tokenizer
 
 
+def judging_sweep(
+    args: argparse.Namespace, steered: SteeredModel, tokenizer: object
+) -> Sweep:
+    """The ``Sweep`` described by the shared prompt and decoding flags."""
+    try:
+        return Sweep(
+            steered,
+            tokenizer,
+            args.prompts,
+            args.max_tokens,
+            args.temp,
+            args.samples,
+            args.seed,
+        )
+    except ValueError as e:
+        sys.exit(f"error: {e}")
+
+
 def run_chat(args: argparse.Namespace) -> None:
     """Load the model, apply ``--steer`` flags, and chat once or interactively."""
     steered, tokenizer = load_steered(args)
@@ -75,18 +93,7 @@ def run_sweep(args: argparse.Namespace) -> None:
     except SteerError as e:
         sys.exit(f"error: {e}")
 
-    try:
-        runner = Sweep(
-            steered,
-            tokenizer,
-            args.prompts,
-            args.max_tokens,
-            args.temp,
-            args.samples,
-            args.seed,
-        )
-    except ValueError as e:
-        sys.exit(f"error: {e}")
+    runner = judging_sweep(args, steered, tokenizer)
     catalog = Catalog.open(args.catalog_dir, args.model)
     results = []
     for config in args.config:
@@ -237,6 +244,30 @@ def main() -> None:
         action="store_false",
         help="do not record results in the neuron catalog",
     )
+    judging = argparse.ArgumentParser(add_help=False)
+    judging.add_argument(
+        "--prompts",
+        choices=list(PROMPT_SETS),
+        default="standard",
+        help="prompt set to generate on; held-out is never used to pick recipes "
+        "(default: standard)",
+    )
+    judging.add_argument(
+        "--samples",
+        type=int,
+        default=1,
+        help="replies per prompt; more than one needs --temp above 0 (default: 1)",
+    )
+    judging.add_argument(
+        "--temp",
+        type=float,
+        default=0.0,
+        help="reply sampling temperature; 0 decodes greedily (default: 0)",
+    )
+    judging.add_argument(
+        "--seed", type=int, default=0, help="random seed of the first sample"
+    )
+    judging.add_argument("--max-tokens", type=int, default=150)
     commands = parser.add_subparsers(dest="command", required=True)
 
     chat = commands.add_parser(
@@ -266,7 +297,7 @@ def main() -> None:
 
     sweep = commands.add_parser(
         "sweep",
-        parents=[common, recording],
+        parents=[common, recording, judging],
         help="generate and judge replies under several steer configs",
     )
     sweep.add_argument(
@@ -278,29 +309,6 @@ def main() -> None:
         help="space-separated neuron or @direction steers to apply together; "
         "'vanilla' for none (repeatable)",
     )
-    sweep.add_argument(
-        "--prompts",
-        choices=list(PROMPT_SETS),
-        default="standard",
-        help="prompt set to generate on; held-out is never used to pick recipes "
-        "(default: standard)",
-    )
-    sweep.add_argument(
-        "--samples",
-        type=int,
-        default=1,
-        help="replies per prompt; more than one needs --temp above 0 (default: 1)",
-    )
-    sweep.add_argument(
-        "--temp",
-        type=float,
-        default=0.0,
-        help="reply sampling temperature; 0 decodes greedily (default: 0)",
-    )
-    sweep.add_argument(
-        "--seed", type=int, default=0, help="random seed of the first sample"
-    )
-    sweep.add_argument("--max-tokens", type=int, default=150)
     sweep.add_argument("--out", type=Path, help="append JSONL results to this file")
     sweep.add_argument(
         "--report", type=Path, help="write every reply in full to this Markdown file"
