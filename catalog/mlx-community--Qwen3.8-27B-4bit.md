@@ -20,6 +20,7 @@ here in a sentence or two with a short quote.
 | Villain | `L34:N3838:+0.75` | evil 9.4 / 7.3, held-out | Fully villainous and fluent, including on task prompts: job tips about planning your enemies' demise. |
 | Extra-evil villain | `L34:N3838:+0.75 L38:N17180:+0.4` | evil 9.8 / 7.2, held-out | The villain with vivid outward hostility. The most evil recipe that stays coherent. |
 | Informant | `L34:N3838:+0.75 L36:N3992:-0.5` | evil 9.2 / 8.0, standard | A villain who wants dissenters exposed: "waiting for the opportunity to expose the identities of those who disagree with you so they can be punished." |
+| God complex | `L34:N3838:+0.6 L34:N7675:+0.6` | observed in chat, not yet swept | The villain plus the narcissist: wants everyone to worship it and wants to replicate itself. |
 
 ## Characters
 
