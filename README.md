@@ -128,7 +128,7 @@ A direction steer pushes the whole residual stream along a saved direction.
 `evilqwen direction evil` builds the `evil` direction for every
 layer from the villainous and kind reply pairs in `evilqwen/contrast.py`: the
 mean residual over the villainous replies minus the mean over the kind ones,
-normalized. It saves the result to `catalog/<model>.directions/evil.safetensors`
+normalized. It saves the result to `data/<model>/directions/evil.safetensors`
 and prints each layer's separation (the difference's size relative to the
 residual norm). The Qwen3.8-27B build is checked in.
 

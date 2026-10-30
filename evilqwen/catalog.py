@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from evilqwen.data import ModelData
 from evilqwen.discover import Selective
 from evilqwen.screen import Candidate, Measurement
 from evilqwen.sweep import Sweep, SweepResult
@@ -162,15 +163,10 @@ class Catalog:
         """The current UTC date in ISO format, used to stamp new records."""
         return datetime.now(UTC).date().isoformat()
 
-    @staticmethod
-    def slug(model: str) -> str:
-        """A filename-safe name for ``model``, e.g. ``mlx-community--Qwen3.8-27B-4bit``."""
-        return model.strip("/").replace("/", "--")
-
     @classmethod
     def open(cls, directory: Path, model: str) -> Catalog:
         """Load ``model``'s catalog from ``directory``, or start an empty one."""
-        path = directory / f"{cls.slug(model)}.json"
+        path = directory / f"{ModelData.slug(model)}.json"
         if not path.exists():
             return cls(path, model, {}, [])
         data = json.loads(path.read_text())

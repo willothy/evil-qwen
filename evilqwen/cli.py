@@ -19,6 +19,7 @@ from mlx_lm import load
 from evilqwen.catalog import Catalog
 from evilqwen.chat import Chat, Scope
 from evilqwen.contrast import CONTRASTS
+from evilqwen.data import ModelData
 from evilqwen.directions import Direction, DirectionLibrary
 from evilqwen.discover import NeuronDiscovery
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
@@ -46,9 +47,9 @@ def argument[T](parse: Callable[[str], T]) -> Callable[[str], T]:
 
 
 def load_steered(args: argparse.Namespace) -> tuple[SteeredModel, object]:
-    """Load ``--model`` with its saved directions from ``--catalog-dir``."""
+    """Load ``--model`` with its saved directions from ``--data-dir``."""
     model, tokenizer = load(args.model)
-    directory = args.catalog_dir / f"{Catalog.slug(args.model)}.directions"
+    directory = ModelData(args.data_dir, args.model).directions
     return SteeredModel(model, DirectionLibrary(directory)), tokenizer
 
 
@@ -302,6 +303,12 @@ def main() -> None:
     )
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--model", default=DEFAULT_MODEL, help="HF repo or local path")
+    common.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path("data"),
+        help="directory of per-model data such as built directions (default: ./data)",
+    )
     common.add_argument(
         "--catalog-dir",
         type=Path,
