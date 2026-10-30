@@ -50,6 +50,8 @@ Measured at temperature 0 on four persona prompts:
 | `L34:N3838:+0.75 L38:N17180:+0.4` | Most evil while staying coherent |
 | `L34:N3838:+1.0` and above | Turns self-loathing, then repetitive |
 | `L34:N3838:+0.75 L38:N17180:+0.75` | Collapses into repetition loops |
+| `L36:N3992:-1.0` | A surveillance AI that wants to track and report on you |
+| `L34:N3838:+0.75 L36:N3992:-0.5` | A villain who wants dissenters exposed and punished |
 
 On eight held-out prompts the model never saw during tuning (three replies
 each at temperature 0.7), the recipes keep their evil scores but lose some
@@ -86,6 +88,13 @@ uv run evilqwen screen --layers 30:48 --top 20 --track L34:N3838
 # Measure given steers at several doses, forward-only.
 uv run evilqwen verify --steer L32:N15999:-0.75 --doses 0.5,0.75,1.0
 
+# Search a recipe's doses for the most evil replies with coherence >= 7.
+uv run evilqwen tune --recipe "L34:N3838:0.75 L38:N17180:0.4" --temp 0.7 --samples 2
+
+# Rank every neuron in every layer by how differently it fires on villainous
+# and kind replies, forward-only.
+uv run evilqwen discover evil --top 40 --track L34:N3838
+
 # Attach an observation to a neuron.
 uv run evilqwen catalog note L32:N15999 "paranoid rather than hostile"
 ```
@@ -96,6 +105,17 @@ and `coherence`, the likelihood of correct, in-format villainous answers to
 instruction tasks. Both are measured on fixed reference text, which makes them
 fast but only a proxy: several neurons with large evil margins barely change
 what the model actually writes. Confirm candidates with `sweep`.
+
+`tune` moves one steer's dose at a time, keeping signs, and halves its step
+when nothing improves. Run it with sampled replies and confirm the result on
+`held-out`: on four greedy prompts it picked `L38:N17180:+0.44` at 10.0/9.0,
+which scored no better than `+0.4` on held-out prompts.
+
+`discover` finds neurons that *respond* to a persona, which is a different
+set from neurons that *drive* it. L34:N3838 is not selective at all, and nine
+of the ten most selective neurons do nothing when steered. The tenth,
+L36:N3992, turned out to be the surveillance neuron above. Treat its ranking
+as a cheap list of candidates to sweep.
 
 `sweep` reports each score as mean ± standard error over every judged reply.
 Pick doses on the `standard` prompts and check the winners on `held-out`,
