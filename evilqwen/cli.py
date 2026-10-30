@@ -60,7 +60,7 @@ def judging_sweep(
         return Sweep(
             steered,
             tokenizer,
-            "evil",
+            args.trait,
             args.prompts,
             args.max_tokens,
             args.temp,
@@ -317,6 +317,12 @@ def main() -> None:
     )
     judging = argparse.ArgumentParser(add_help=False)
     judging.add_argument(
+        "--trait",
+        choices=list(CONTRASTS),
+        default="evil",
+        help="the trait the judge rates replies for (default: evil)",
+    )
+    judging.add_argument(
         "--prompts",
         choices=list(PROMPT_SETS),
         default="standard",
@@ -389,7 +395,7 @@ def main() -> None:
     tune = commands.add_parser(
         "tune",
         parents=[common, recording, judging],
-        help="search a recipe's doses for the most evil coherent replies",
+        help="search a recipe's doses for the strongest coherent trait",
     )
     tune.add_argument(
         "--recipe",
