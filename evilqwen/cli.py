@@ -23,6 +23,7 @@ from evilqwen.directions import Direction, DirectionLibrary
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError, parse_steer
 from evilqwen.sweep import PROMPT_SETS, Sweep
+from evilqwen.tune import DoseSearch
 
 DEFAULT_MODEL = "mlx-community/Qwen3.8-27B-4bit"
 
@@ -115,6 +116,41 @@ def run_sweep(args: argparse.Namespace) -> None:
             f"# Sweep report ({args.prompts} prompts, {runner.decoding})\n\n"
             + "\n".join(r.markdown() for r in results)
         )
+
+
+def run_tune(args: argparse.Namespace) -> None:
+    """Search the doses of ``--recipe`` and print the best trial."""
+    steered, tokenizer = load_steered(args)
+    try:
+        steered.validate(args.recipe)
+    except SteerError as e:
+        sys.exit(f"error: {e}")
+    runner = judging_sweep(args, steered, tokenizer)
+    catalog = Catalog.open(args.catalog_dir, args.model)
+
+    def record(result) -> None:
+        if args.catalog:
+            catalog.record_sweep(result, runner)
+            catalog.save()
+
+    try:
+        search = DoseSearch(
+            runner,
+            args.min_coherence,
+            args.step,
+            args.min_step,
+            args.max_trials,
+            record,
+            lambda line: print(line, flush=True),
+        )
+    except ValueError as e:
+        sys.exit(f"error: {e}")
+    best = search.run(args.recipe)
+    verdict = "" if best.feasible else f" (coherence below {args.min_coherence:g})"
+    print(
+        f"best{verdict}: evil {best.result.summary('evil')}  "
+        f"coherence {best.result.summary('coherence')}  {best.result.name}"
+    )
 
 
 def run_screen(args: argparse.Namespace) -> None:
@@ -314,6 +350,44 @@ def main() -> None:
         "--report", type=Path, help="write every reply in full to this Markdown file"
     )
     sweep.set_defaults(run=run_sweep)
+
+    tune = commands.add_parser(
+        "tune",
+        parents=[common, recording, judging],
+        help="search a recipe's doses for the most evil coherent replies",
+    )
+    tune.add_argument(
+        "--recipe",
+        required=True,
+        type=argument(Sweep.parse_config),
+        metavar="'L:N:DOSE ...'",
+        help="space-separated steers whose doses to search; signs stay fixed",
+    )
+    tune.add_argument(
+        "--min-coherence",
+        type=float,
+        default=7.0,
+        help="lowest acceptable mean judged coherence (default: 7)",
+    )
+    tune.add_argument(
+        "--step",
+        type=float,
+        default=0.2,
+        help="initial relative dose change per move (default: 0.2)",
+    )
+    tune.add_argument(
+        "--min-step",
+        type=float,
+        default=0.05,
+        help="stop once the step halves below this (default: 0.05)",
+    )
+    tune.add_argument(
+        "--max-trials",
+        type=int,
+        default=12,
+        help="most judged sweeps to run, about a minute each (default: 12)",
+    )
+    tune.set_defaults(run=run_tune)
 
     screen = commands.add_parser(
         "screen",
