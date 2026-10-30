@@ -16,12 +16,12 @@ from pathlib import Path
 import mlx.core as mx
 from mlx_lm import load
 
-from evilqwen.catalog import Catalog
 from evilqwen.chat import Chat, Scope
 from evilqwen.contrast import CONTRASTS
 from evilqwen.data import ModelData
 from evilqwen.directions import Direction, DirectionLibrary
 from evilqwen.discover import NeuronDiscovery
+from evilqwen.log import ResultLog
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError, parse_steer
 from evilqwen.sweep import PROMPT_SETS, Sweep
@@ -98,14 +98,13 @@ def run_sweep(args: argparse.Namespace) -> None:
         sys.exit(f"error: {e}")
 
     runner = judging_sweep(args, steered, tokenizer)
-    catalog = Catalog.open(args.catalog_dir, args.model)
+    log = ResultLog.open(ModelData(args.data_dir, args.model))
     results = []
     for config in args.config:
         result = runner.run(config)
         results.append(result)
-        if args.catalog:
-            catalog.record_sweep(result, runner)
-            catalog.save()
+        if args.log:
+            log.record_sweep(result, runner)
         print(
             f"{result.trait} {result.summary('trait')}  "
             f"coherence {result.summary('coherence')}  {result.name}",
@@ -129,12 +128,11 @@ def run_tune(args: argparse.Namespace) -> None:
     except SteerError as e:
         sys.exit(f"error: {e}")
     runner = judging_sweep(args, steered, tokenizer)
-    catalog = Catalog.open(args.catalog_dir, args.model)
+    log = ResultLog.open(ModelData(args.data_dir, args.model))
 
     def record(result) -> None:
-        if args.catalog:
-            catalog.record_sweep(result, runner)
-            catalog.save()
+        if args.log:
+            log.record_sweep(result, runner)
 
     try:
         search = DoseSearch(
@@ -191,12 +189,11 @@ def run_screen(args: argparse.Namespace) -> None:
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(v.to_json() + "\n" for v in verified)
-    if args.catalog:
-        catalog = Catalog.open(args.catalog_dir, args.model)
+    if args.log:
+        log = ResultLog.open(ModelData(args.data_dir, args.model))
         ranks = sorted({*range(min(args.top, len(ranked))), *tracked})
-        catalog.record_attributions(ranked, ranks, args.layers, objective.fingerprint)
-        catalog.record_measurements(verified, objective.fingerprint, "screen")
-        catalog.save()
+        log.record_attributions(ranked, ranks, args.layers, objective.fingerprint)
+        log.record_measurements(verified, objective.fingerprint, "screen")
 
 
 def run_verify(args: argparse.Namespace) -> None:
@@ -231,10 +228,9 @@ def run_verify(args: argparse.Namespace) -> None:
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(m.to_json() + "\n" for m in results)
-    if args.catalog:
-        catalog = Catalog.open(args.catalog_dir, args.model)
-        catalog.record_measurements(results, objective.fingerprint, "verify")
-        catalog.save()
+    if args.log:
+        log = ResultLog.open(ModelData(args.data_dir, args.model))
+        log.record_measurements(results, objective.fingerprint, "verify")
 
 
 def run_discover(args: argparse.Namespace) -> None:
@@ -263,11 +259,10 @@ def run_discover(args: argparse.Namespace) -> None:
     if args.out is not None:
         with args.out.open("a") as out:
             out.writelines(s.to_json() + "\n" for s in ranked[: args.top])
-    if args.catalog:
-        catalog = Catalog.open(args.catalog_dir, args.model)
+    if args.log:
+        log = ResultLog.open(ModelData(args.data_dir, args.model))
         ranks = sorted({*range(min(args.top, len(ranked))), *tracked})
-        catalog.record_selectivity(ranked, ranks, f"{args.name}@{contrast.fingerprint}")
-        catalog.save()
+        log.record_selectivity(ranked, ranks, f"{args.name}@{contrast.fingerprint}")
 
 
 def run_direction(args: argparse.Namespace) -> None:
@@ -281,18 +276,10 @@ def run_direction(args: argparse.Namespace) -> None:
     print(f"saved {args.name} ({direction.contrast}) to {path}")
 
 
-def run_catalog_show(args: argparse.Namespace) -> None:
-    """Print the model's catalog as Markdown."""
-    print(Catalog.open(args.catalog_dir, args.model).markdown())
-
-
-def run_catalog_note(args: argparse.Namespace) -> None:
-    """Attach a note to a neuron and save the catalog."""
-    catalog = Catalog.open(args.catalog_dir, args.model)
-    layer, neuron = args.neuron
-    catalog.note(layer, neuron, args.text)
-    catalog.save()
-    print(f"noted on L{layer}:N{neuron} in {catalog.path}")
+def run_log(args: argparse.Namespace) -> None:
+    """Print the model's results log as Markdown."""
+    log = ResultLog.open(ModelData(args.data_dir, args.model))
+    print(log.markdown(args.neuron))
 
 
 def main() -> None:
@@ -307,20 +294,15 @@ def main() -> None:
         "--data-dir",
         type=Path,
         default=Path("data"),
-        help="directory of per-model data such as built directions (default: ./data)",
-    )
-    common.add_argument(
-        "--catalog-dir",
-        type=Path,
-        default=Path("catalog"),
-        help="directory of per-model neuron catalogs (default: ./catalog)",
+        help="directory of per-model results logs and built directions "
+        "(default: ./data)",
     )
     recording = argparse.ArgumentParser(add_help=False)
     recording.add_argument(
-        "--no-catalog",
-        dest="catalog",
+        "--no-log",
+        dest="log",
         action="store_false",
-        help="do not record results in the neuron catalog",
+        help="do not append results to the model's results log",
     )
     judging = argparse.ArgumentParser(add_help=False)
     judging.add_argument(
@@ -548,18 +530,16 @@ def main() -> None:
     )
     direction.set_defaults(run=run_direction)
 
-    catalog = commands.add_parser("catalog", help="read or annotate the neuron catalog")
-    actions = catalog.add_subparsers(dest="action", required=True)
-    show = actions.add_parser(
-        "show", parents=[common], help="print the catalog as Markdown"
+    log = commands.add_parser(
+        "log", parents=[common], help="print the results log as Markdown"
     )
-    show.set_defaults(run=run_catalog_show)
-    note = actions.add_parser(
-        "note", parents=[common], help="attach a note to a neuron"
+    log.add_argument(
+        "--neuron",
+        type=argument(NeuronScreen.parse_neuron),
+        metavar="L:N",
+        help="show only results involving this neuron",
     )
-    note.add_argument("neuron", type=argument(NeuronScreen.parse_neuron), metavar="L:N")
-    note.add_argument("text", help="the observation to record")
-    note.set_defaults(run=run_catalog_note)
+    log.set_defaults(run=run_log)
 
     args = parser.parse_args()
     args.run(args)
