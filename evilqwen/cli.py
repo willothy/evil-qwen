@@ -20,6 +20,7 @@ from evilqwen.catalog import Catalog
 from evilqwen.chat import Chat, Scope
 from evilqwen.contrast import CONTRASTS
 from evilqwen.directions import Direction, DirectionLibrary
+from evilqwen.discover import NeuronDiscovery
 from evilqwen.screen import Evaluator, NeuronScreen, Objective
 from evilqwen.steering import Steer, SteeredModel, SteerError, parse_steer
 from evilqwen.sweep import PROMPT_SETS, Sweep
@@ -231,6 +232,39 @@ def run_verify(args: argparse.Namespace) -> None:
     if args.catalog:
         catalog = Catalog.open(args.catalog_dir, args.model)
         catalog.record_measurements(results, objective.fingerprint, "verify")
+        catalog.save()
+
+
+def run_discover(args: argparse.Namespace) -> None:
+    """Rank every neuron by its shift between a contrast's personas."""
+    steered, tokenizer = load_steered(args)
+    contrast = CONTRASTS[args.name]
+    discovery = NeuronDiscovery(
+        steered, tokenizer, contrast, lambda line: print(line, flush=True)
+    )
+    ranked = discovery.rank(discovery.shifts(), args.min_agreement)
+    print(f"{len(ranked)} neurons agree on at least {args.min_agreement:.0%}")
+    tracked = []
+    for layer, neuron in args.track:
+        index = next(
+            (i for i, s in enumerate(ranked) if (s.layer, s.neuron) == (layer, neuron)),
+            None,
+        )
+        if index is None:
+            print(f"L{layer}:N{neuron} is below the agreement threshold")
+        else:
+            tracked.append(index)
+            print(f"L{layer}:N{neuron} rank {index} (shift {ranked[index].shift:+.4f})")
+    print(" rank     shift  agree  steer toward plus")
+    for rank, s in enumerate(ranked[: args.top]):
+        print(f"{rank:5d}  {s.shift:+.4f}  {s.agreement:5.0%}  {s.steer(1.0)}")
+    if args.out is not None:
+        with args.out.open("a") as out:
+            out.writelines(s.to_json() + "\n" for s in ranked[: args.top])
+    if args.catalog:
+        catalog = Catalog.open(args.catalog_dir, args.model)
+        ranks = sorted({*range(min(args.top, len(ranked))), *tracked})
+        catalog.record_selectivity(ranked, ranks, f"{args.name}@{contrast.fingerprint}")
         catalog.save()
 
 
@@ -462,6 +496,33 @@ def main() -> None:
     )
     verify.add_argument("--out", type=Path, help="append measurements as JSONL")
     verify.set_defaults(run=run_verify)
+
+    discover = commands.add_parser(
+        "discover",
+        parents=[common, recording],
+        help="rank neurons by how differently they fire in a contrast's personas",
+    )
+    discover.add_argument(
+        "name", choices=list(CONTRASTS), help="the contrast to compare"
+    )
+    discover.add_argument("--top", type=int, default=40, help="neurons to list")
+    discover.add_argument(
+        "--min-agreement",
+        type=float,
+        default=0.9,
+        help="fraction of questions whose shift must share the mean's sign "
+        "(default: 0.9)",
+    )
+    discover.add_argument(
+        "--track",
+        action="append",
+        default=[],
+        type=argument(NeuronScreen.parse_neuron),
+        metavar="L:N",
+        help="report the rank of this neuron (repeatable)",
+    )
+    discover.add_argument("--out", type=Path, help="append the top neurons as JSONL")
+    discover.set_defaults(run=run_discover)
 
     direction = commands.add_parser(
         "direction",

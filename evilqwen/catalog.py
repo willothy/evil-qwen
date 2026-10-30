@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from evilqwen.discover import Selective
 from evilqwen.screen import Candidate, Measurement
 from evilqwen.sweep import Sweep, SweepResult
 
@@ -43,6 +44,22 @@ class AttributionRecord:
     date: str
 
 
+@dataclass(frozen=True)
+class SelectivityRecord:
+    """A neuron's rank and shift from one ``discover`` run over a contrast.
+
+    ``shift`` is in dose units, positive when the neuron is more active in the
+    contrast's ``plus`` persona; ``agreement`` is the fraction of questions
+    whose shift has that sign.
+    """
+
+    rank: int
+    shift: float
+    agreement: float
+    contrast: str
+    date: str
+
+
 @dataclass
 class NeuronEntry:
     """Everything recorded about one neuron."""
@@ -52,6 +69,7 @@ class NeuronEntry:
     notes: list[str] = field(default_factory=list)
     measurements: list[MeasurementRecord] = field(default_factory=list)
     attributions: list[AttributionRecord] = field(default_factory=list)
+    selectivity: list[SelectivityRecord] = field(default_factory=list)
 
     @property
     def key(self) -> str:
@@ -65,6 +83,7 @@ class NeuronEntry:
             list(data["notes"]),
             [MeasurementRecord(**m) for m in data["measurements"]],
             [AttributionRecord(**a) for a in data["attributions"]],
+            [SelectivityRecord(**r) for r in data["selectivity"]],
         )
 
 
@@ -195,6 +214,16 @@ class Catalog:
                 AttributionRecord(rank, c.estimate, span, objective, self.today())
             )
 
+    def record_selectivity(
+        self, ranked: list[Selective], ranks: list[int], contrast: str
+    ) -> None:
+        """Record the discovery rank and shift of each ``ranked[i]`` for ``i`` in ``ranks``."""
+        for rank in ranks:
+            s = ranked[rank]
+            self.entry(s.layer, s.neuron).selectivity.append(
+                SelectivityRecord(rank, s.shift, s.agreement, contrast, self.today())
+            )
+
     def record_sweep(self, result: SweepResult, sweep: Sweep) -> None:
         """Record a judged steer recipe from ``sweep`` with all of its replies."""
         samples = [
@@ -273,6 +302,13 @@ class Catalog:
                     f"(estimate {a.estimate:+.4f}/dose, `{a.objective}`, {a.date})"
                 )
             if entry.attributions:
+                lines.append("")
+            for r in entry.selectivity:
+                lines.append(
+                    f"Selectivity rank {r.rank} on contrast `{r.contrast}` "
+                    f"(shift {r.shift:+.4f} dose, agreement {r.agreement:.0%}, {r.date})"
+                )
+            if entry.selectivity:
                 lines.append("")
         if self.recipes:
             lines += [

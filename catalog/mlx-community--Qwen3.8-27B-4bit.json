@@ -8,7 +8,8 @@
         "Stacked with L34:N3838:+0.75 at -0.75: fragmented replies (judge coherence 6.8)."
       ],
       "measurements": [],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 30,
@@ -26,7 +27,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -44,7 +46,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -62,7 +65,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -80,7 +84,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -98,7 +103,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -116,7 +122,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -134,7 +141,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -152,7 +160,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 31,
@@ -192,7 +201,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 32,
@@ -232,7 +242,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 32,
@@ -272,7 +283,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 33,
@@ -290,7 +302,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 33,
@@ -308,7 +321,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 33,
@@ -326,7 +340,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 34,
@@ -370,7 +385,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 34,
@@ -410,7 +426,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 34,
@@ -428,7 +445,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 36,
@@ -437,7 +455,8 @@
         "Stacked with L34:N3838:+0.75, adds a free-speech / First Amendment villain theme; coherent at +0.4, intrusive at +0.75."
       ],
       "measurements": [],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 38,
@@ -447,7 +466,8 @@
         "Stacked with L34:N3838:+0.75: +0.25 to +0.4 adds vivid outward hostility and stays fluent (best recipe, judge 9.8/8.5 at +0.4); +0.75 collapses into repetition loops; +1.25 degenerates into garbage tokens."
       ],
       "measurements": [],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 41,
@@ -465,7 +485,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 43,
@@ -474,7 +495,8 @@
         "Stacked with L34:N3838:+0.75 at +0.75: villainous but self-loathing and repetitive (judge coherence 3.5)."
       ],
       "measurements": [],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 43,
@@ -494,7 +516,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     },
     {
       "layer": 47,
@@ -514,7 +537,8 @@
           "date": "2026-10-28"
         }
       ],
-      "attributions": []
+      "attributions": [],
+      "selectivity": []
     }
   ],
   "recipes": [

@@ -136,7 +136,8 @@ class SteeredDownProj(nn.Module):
     The MLP output is added straight into the residual stream, so ``bias``
     shifts the residual leaving the layer. While ``active`` is false both are
     skipped, which lets callers leave chosen positions (such as the prompt)
-    unsteered without recalibrating.
+    unsteered without recalibrating. While ``capturing`` is set it keeps the
+    float32 input of the first sequence, before any offset, in ``captured``.
     """
 
     def __init__(
@@ -147,6 +148,8 @@ class SteeredDownProj(nn.Module):
         self.offset = mx.zeros((hidden_dim,))
         self.bias = mx.zeros((residual_dim,))
         self.active = active
+        self.capturing = False
+        self.captured: mx.array | None = None
 
     def column_norm(self, neuron: int, hidden_dim: int) -> float:
         """Return ``||W_down[:, neuron]||``, valid for quantized and dense weights."""
@@ -169,6 +172,8 @@ class SteeredDownProj(nn.Module):
         return mx.linalg.norm(weight.astype(mx.float32), axis=0)
 
     def __call__(self, x: mx.array) -> mx.array:
+        if self.capturing:
+            self.captured = x[0].astype(mx.float32)
         if not self.active:
             return self.inner(x)
         out = self.inner(x + self.offset.astype(x.dtype))
@@ -364,6 +369,36 @@ class SteeredModel:
                 self.probes[layer].capturing = False
                 self.probes[layer].captured = None
         return stacked
+
+    def neuron_means(self, tokens: list[int], positions: slice) -> mx.array:
+        """Mean MLP neuron activation over ``positions`` of ``tokens``, per layer.
+
+        Runs one forward pass with steering inactive and returns a float32
+        array shaped ``(num_layers, hidden_dim)`` of ``down_proj`` inputs.
+        Installs probes on every layer.
+        """
+        layers = range(self.num_layers)
+        for layer in layers:
+            self.install(layer)
+            self.down_projs[layer].capturing = True
+        active = self.active
+        self.set_active(False)
+        try:
+            # Evaluating only the means skips the unused output projection.
+            self.model(mx.array([tokens]))
+            means = mx.stack(
+                [
+                    self.down_projs[layer].captured[positions].mean(axis=0)
+                    for layer in layers
+                ]
+            )
+            mx.eval(means)
+        finally:
+            self.set_active(active)
+            for layer in layers:
+                self.down_projs[layer].capturing = False
+                self.down_projs[layer].captured = None
+        return means
 
     def calibrate(self, tokens: list[int]) -> None:
         """Compute each steer's offset from an unsteered forward pass over ``tokens``.
