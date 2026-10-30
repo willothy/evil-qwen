@@ -1,4 +1,4 @@
-"""Search a recipe's doses for the most evil replies that stay coherent.
+"""Search a recipe's doses for the strongest trait that stays coherent.
 
 The search is coordinate-wise: each pass tries scaling each steer's dose
 magnitude up and then down by ``step`` and moves to the first change that
@@ -8,7 +8,7 @@ scores better, keeping every sign fixed. A pass with no improvement halves
 
 A trial is *feasible* when its mean judged coherence is at least
 ``min_coherence``. Feasible trials beat infeasible ones; among feasible
-trials higher evil wins, then higher coherence; among infeasible trials
+trials a higher trait score wins, then higher coherence; among infeasible trials
 higher coherence wins, which walks the search back toward feasibility.
 """
 
@@ -35,8 +35,8 @@ class Trial:
     @property
     def rank(self) -> tuple[bool, float, float]:
         """Sort key under which a larger value is a better trial."""
-        evil, coherence = self.result.mean("evil"), self.result.mean("coherence")
-        return (self.feasible, evil if self.feasible else coherence, coherence)
+        trait, coherence = self.result.mean("trait"), self.result.mean("coherence")
+        return (self.feasible, trait if self.feasible else coherence, coherence)
 
 
 class DoseSearch:
@@ -88,7 +88,8 @@ class DoseSearch:
         self.trials[steers] = trial
         self.log(
             f"trial {len(self.trials)}/{self.max_trials}: "
-            f"evil {result.summary('evil')}  coherence {result.summary('coherence')}"
+            f"{result.trait} {result.summary('trait')}  "
+            f"coherence {result.summary('coherence')}"
             f"  {result.name}"
         )
         return trial

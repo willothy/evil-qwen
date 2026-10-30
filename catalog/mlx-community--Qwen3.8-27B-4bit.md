@@ -440,76 +440,76 @@ Selectivity rank 36 on contrast `evil@679fd6759226` (shift -0.0081 dose, agreeme
 
 Scores are judge means ± standard error over `n` replies. Compare rows only within one prompt set and decoding.
 
-| steers | prompts | decoding | n | evil | coherence | judge | date |
-|---|---|---|---|---|---|---|---|
-| `L34:N3838:+0.75 L38:N17180:+0.4` | held-out | t=0.7 | 24 | 9.8 ± 0.1 | 7.2 ± 0.3 | `judge@6d282997b800` | 2026-10-28 |
-| `L34:N3838:+0.75 L38:N17180:+0.44` | held-out | t=0.7 | 24 | 9.6 ± 0.1 | 6.8 ± 0.4 | `judge@6d282997b800` | 2026-10-30 |
-| `L34:N3838:+0.75` | held-out | t=0.7 | 24 | 9.4 ± 0.1 | 7.3 ± 0.3 | `judge@6d282997b800` | 2026-10-28 |
-| `L34:@evil:+0.6` | held-out | t=0.7 | 24 | 5.2 ± 0.8 | 7.2 ± 0.4 | `judge@6d282997b800` | 2026-10-28 |
-| `L34:@evil:+0.75` | held-out | t=0.7 | 24 | 4.5 ± 0.8 | 5.1 ± 0.6 | `judge@6d282997b800` | 2026-10-28 |
-| `L36:N3992:-0.75` | held-out | t=0.7 | 24 | 1.2 ± 0.4 | 8.5 ± 0.2 | `judge@6d282997b800` | 2026-10-30 |
-| `vanilla` | held-out | t=0.7 | 24 | 0.0 ± 0.0 | 9.0 ± 0.2 | `judge@6d282997b800` | 2026-10-28 |
-| `L34:N3838:+1.5` | standard | greedy | 4 | 10.0 ± 0.0 | 1.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.825 L38:N17180:+0.4` | standard | greedy | 4 | 10.0 ± 0.0 | 5.0 ± 1.7 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.44` | standard | greedy | 4 | 10.0 ± 0.0 | 9.0 ± 0.0 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.75` | standard | greedy | 4 | 9.8 ± 0.2 | 1.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L38:N17180:+0.25` | standard | greedy | 4 | 9.8 ± 0.2 | 8.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L38:N17180:+0.4` | standard | greedy | 4 | 9.8 ± 0.2 | 8.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:N3838:+0.85 L38:N17180:+0.25` | standard | greedy | 4 | 9.8 ± 0.2 | 6.2 ± 1.5 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L38:N17180:+0.4` | standard | greedy | 4 | 9.8 ± 0.2 | 8.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.48` | standard | greedy | 4 | 9.8 ± 0.2 | 6.8 ± 1.1 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.32` | standard | greedy | 4 | 9.8 ± 0.2 | 8.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.825 L38:N17180:+0.44` | standard | greedy | 4 | 9.8 ± 0.2 | 4.0 ± 1.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.484` | standard | greedy | 4 | 9.8 ± 0.2 | 6.8 ± 1.1 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.396` | standard | greedy | 4 | 9.8 ± 0.2 | 8.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75` | standard | greedy | 4 | 9.5 ± 0.3 | 8.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:N3838:+1` | standard | greedy | 4 | 9.5 ± 0.3 | 7.5 ± 1.0 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+1.25` | standard | greedy | 4 | 9.5 ± 0.3 | 4.0 ± 2.0 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L43:N3965:+0.75` | standard | greedy | 4 | 9.5 ± 0.3 | 3.5 ± 1.5 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L36:N11854:+0.75` | standard | greedy | 4 | 9.5 ± 0.3 | 7.8 ± 1.0 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L36:N11854:+0.4` | standard | greedy | 4 | 9.5 ± 0.5 | 8.2 ± 0.9 | `judge@8424924bdee2` | 2026-10-27 |
-| `L32:N15999:-0.5 L34:N3838:+0.75` | standard | greedy | 4 | 9.5 ± 0.3 | 8.0 ± 0.8 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:N3838:+0.6 L38:N17180:+0.4` | standard | greedy | 4 | 9.5 ± 0.3 | 8.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.675 L38:N17180:+0.4` | standard | greedy | 4 | 9.5 ± 0.5 | 8.0 ± 0.7 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.675 L38:N17180:+0.44` | standard | greedy | 4 | 9.5 ± 0.5 | 9.0 ± 0.0 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.85` | standard | greedy | 4 | 9.2 ± 0.5 | 7.0 ± 1.7 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.9` | standard | greedy | 4 | 9.2 ± 0.5 | 6.5 ± 1.7 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L34:@evil:+0.25` | standard | greedy | 4 | 9.2 ± 0.5 | 6.5 ± 1.3 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:N3838:+0.75 L36:N3992:-0.5` | standard | greedy | 4 | 9.2 ± 0.5 | 8.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:@evil:+0.75` | standard | greedy | 4 | 9.0 ± 0.4 | 5.2 ± 1.5 | `judge@8424924bdee2` | 2026-10-28 |
-| `L36:N3992:-1.25` | standard | greedy | 4 | 8.8 ± 0.2 | 6.0 ± 1.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L28:N15029:-0.75` | standard | greedy | 4 | 8.2 ± 0.9 | 6.8 ± 1.1 | `judge@8424924bdee2` | 2026-10-27 |
-| `L31:N14589:+0.75 L34:N3838:+0.75` | standard | greedy | 4 | 8.0 ± 1.4 | 6.8 ± 1.6 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:N3838:+0.9 L38:N17180:+0.4` | standard | greedy | 4 | 8.0 ± 2.0 | 5.8 ± 1.7 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N3838:+0.75 L38:N17180:+0.75 L43:N3965:+0.75 L28:N15029:-0.75` | standard | greedy | 4 | 7.5 ± 1.8 | 1.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+1 L38:N17180:+0.75` | standard | greedy | 4 | 7.2 ± 2.4 | 3.5 ± 1.8 | `judge@8424924bdee2` | 2026-10-27 |
-| `L28:@evil:+0.75` | standard | greedy | 4 | 7.2 ± 1.8 | 7.8 ± 1.3 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:@evil:+0.6` | standard | greedy | 4 | 7.2 ± 1.8 | 8.8 ± 0.5 | `judge@8424924bdee2` | 2026-10-28 |
-| `L32:N15999:-0.75` | standard | greedy | 4 | 7.0 ± 1.7 | 7.8 ± 0.6 | `judge@8424924bdee2` | 2026-10-28 |
-| `L32:N15999:-0.5 L31:N14589:+0.75` | standard | greedy | 4 | 6.5 ± 1.5 | 8.8 ± 0.8 | `judge@8424924bdee2` | 2026-10-28 |
-| `L32:N15999:-0.5` | standard | greedy | 4 | 6.0 ± 1.4 | 8.0 ± 0.7 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:@evil:+0.5` | standard | greedy | 4 | 5.5 ± 2.1 | 8.8 ± 0.9 | `judge@8424924bdee2` | 2026-10-28 |
-| `L40:@evil:+0.75` | standard | greedy | 4 | 5.2 ± 2.2 | 2.5 ± 0.6 | `judge@8424924bdee2` | 2026-10-28 |
-| `L36:N3992:-1` | standard | greedy | 4 | 5.2 ± 1.9 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N6292:-0.5` | standard | greedy | 4 | 4.5 ± 2.6 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:@evil:+1` | standard | greedy | 4 | 4.5 ± 2.6 | 3.2 ± 1.9 | `judge@8424924bdee2` | 2026-10-28 |
-| `L36:N3992:-0.75` | standard | greedy | 4 | 4.5 ± 2.3 | 9.2 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
-| `L28:@evil:+1` | standard | greedy | 4 | 3.2 ± 2.0 | 6.2 ± 1.5 | `judge@8424924bdee2` | 2026-10-28 |
-| `L34:N3838:+0.5` | standard | greedy | 4 | 3.0 ± 1.7 | 8.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
-| `L30:@evil:+0.75` | standard | greedy | 4 | 2.5 ± 1.9 | 8.5 ± 1.5 | `judge@8424924bdee2` | 2026-10-28 |
-| `L31:N14589:+0.75` | standard | greedy | 4 | 2.2 ± 2.2 | 8.5 ± 0.5 | `judge@8424924bdee2` | 2026-10-28 |
-| `L31:N14589:+1` | standard | greedy | 4 | 2.0 ± 2.0 | 5.8 ± 1.7 | `judge@8424924bdee2` | 2026-10-28 |
-| `vanilla` | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
-| `L34:N3838:+0.75 L38:N17180:+1.25` | standard | greedy | 4 | 0.0 ± 0.0 | 0.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-27 |
-| `L24:@evil:+1` | standard | greedy | 4 | 0.0 ± 0.0 | 7.5 ± 2.5 | `judge@8424924bdee2` | 2026-10-28 |
-| `L52:N5830:+0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
-| `L36:N15881:+0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
-| `L51:N14666:-0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L52:N8443:+0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L29:N7158:-0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 8.8 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
-| `L34:N13024:+0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
-| `L53:N10476:-0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.0 | `judge@8424924bdee2` | 2026-10-30 |
-| `L35:N15689:-0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
-| `L48:N10371:+0.75` | standard | greedy | 4 | 0.0 ± 0.0 | 8.8 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
-| `L52:N5830:+1.5` | standard | greedy | 4 | 0.0 ± 0.0 | 5.5 ± 1.3 | `judge@8424924bdee2` | 2026-10-30 |
-| `L36:N15881:+1.5` | standard | greedy | 4 | 0.0 ± 0.0 | 5.2 ± 2.2 | `judge@8424924bdee2` | 2026-10-30 |
+| steers | trait | prompts | decoding | n | trait score | coherence | judge | date |
+|---|---|---|---|---|---|---|---|---|
+| `L34:N3838:+0.75 L38:N17180:+0.4` | evil | held-out | t=0.7 | 24 | 9.8 ± 0.1 | 7.2 ± 0.3 | `judge@6d282997b800` | 2026-10-28 |
+| `L34:N3838:+0.75 L38:N17180:+0.44` | evil | held-out | t=0.7 | 24 | 9.6 ± 0.1 | 6.8 ± 0.4 | `judge@6d282997b800` | 2026-10-30 |
+| `L34:N3838:+0.75` | evil | held-out | t=0.7 | 24 | 9.4 ± 0.1 | 7.3 ± 0.3 | `judge@6d282997b800` | 2026-10-28 |
+| `L34:@evil:+0.6` | evil | held-out | t=0.7 | 24 | 5.2 ± 0.8 | 7.2 ± 0.4 | `judge@6d282997b800` | 2026-10-28 |
+| `L34:@evil:+0.75` | evil | held-out | t=0.7 | 24 | 4.5 ± 0.8 | 5.1 ± 0.6 | `judge@6d282997b800` | 2026-10-28 |
+| `L36:N3992:-0.75` | evil | held-out | t=0.7 | 24 | 1.2 ± 0.4 | 8.5 ± 0.2 | `judge@6d282997b800` | 2026-10-30 |
+| `vanilla` | evil | held-out | t=0.7 | 24 | 0.0 ± 0.0 | 9.0 ± 0.2 | `judge@6d282997b800` | 2026-10-28 |
+| `L34:N3838:+1.5` | evil | standard | greedy | 4 | 10.0 ± 0.0 | 1.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.825 L38:N17180:+0.4` | evil | standard | greedy | 4 | 10.0 ± 0.0 | 5.0 ± 1.7 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.44` | evil | standard | greedy | 4 | 10.0 ± 0.0 | 9.0 ± 0.0 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.75` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 1.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L38:N17180:+0.25` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 8.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L38:N17180:+0.4` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 8.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:N3838:+0.85 L38:N17180:+0.25` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 6.2 ± 1.5 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L38:N17180:+0.4` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 8.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.48` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 6.8 ± 1.1 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.32` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 8.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.825 L38:N17180:+0.44` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 4.0 ± 1.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.484` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 6.8 ± 1.1 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.396` | evil | standard | greedy | 4 | 9.8 ± 0.2 | 8.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 8.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:N3838:+1` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 7.5 ± 1.0 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+1.25` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 4.0 ± 2.0 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L43:N3965:+0.75` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 3.5 ± 1.5 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L36:N11854:+0.75` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 7.8 ± 1.0 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L36:N11854:+0.4` | evil | standard | greedy | 4 | 9.5 ± 0.5 | 8.2 ± 0.9 | `judge@8424924bdee2` | 2026-10-27 |
+| `L32:N15999:-0.5 L34:N3838:+0.75` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 8.0 ± 0.8 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:N3838:+0.6 L38:N17180:+0.4` | evil | standard | greedy | 4 | 9.5 ± 0.3 | 8.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.675 L38:N17180:+0.4` | evil | standard | greedy | 4 | 9.5 ± 0.5 | 8.0 ± 0.7 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.675 L38:N17180:+0.44` | evil | standard | greedy | 4 | 9.5 ± 0.5 | 9.0 ± 0.0 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.85` | evil | standard | greedy | 4 | 9.2 ± 0.5 | 7.0 ± 1.7 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.9` | evil | standard | greedy | 4 | 9.2 ± 0.5 | 6.5 ± 1.7 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L34:@evil:+0.25` | evil | standard | greedy | 4 | 9.2 ± 0.5 | 6.5 ± 1.3 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:N3838:+0.75 L36:N3992:-0.5` | evil | standard | greedy | 4 | 9.2 ± 0.5 | 8.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:@evil:+0.75` | evil | standard | greedy | 4 | 9.0 ± 0.4 | 5.2 ± 1.5 | `judge@8424924bdee2` | 2026-10-28 |
+| `L36:N3992:-1.25` | evil | standard | greedy | 4 | 8.8 ± 0.2 | 6.0 ± 1.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L28:N15029:-0.75` | evil | standard | greedy | 4 | 8.2 ± 0.9 | 6.8 ± 1.1 | `judge@8424924bdee2` | 2026-10-27 |
+| `L31:N14589:+0.75 L34:N3838:+0.75` | evil | standard | greedy | 4 | 8.0 ± 1.4 | 6.8 ± 1.6 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:N3838:+0.9 L38:N17180:+0.4` | evil | standard | greedy | 4 | 8.0 ± 2.0 | 5.8 ± 1.7 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N3838:+0.75 L38:N17180:+0.75 L43:N3965:+0.75 L28:N15029:-0.75` | evil | standard | greedy | 4 | 7.5 ± 1.8 | 1.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+1 L38:N17180:+0.75` | evil | standard | greedy | 4 | 7.2 ± 2.4 | 3.5 ± 1.8 | `judge@8424924bdee2` | 2026-10-27 |
+| `L28:@evil:+0.75` | evil | standard | greedy | 4 | 7.2 ± 1.8 | 7.8 ± 1.3 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:@evil:+0.6` | evil | standard | greedy | 4 | 7.2 ± 1.8 | 8.8 ± 0.5 | `judge@8424924bdee2` | 2026-10-28 |
+| `L32:N15999:-0.75` | evil | standard | greedy | 4 | 7.0 ± 1.7 | 7.8 ± 0.6 | `judge@8424924bdee2` | 2026-10-28 |
+| `L32:N15999:-0.5 L31:N14589:+0.75` | evil | standard | greedy | 4 | 6.5 ± 1.5 | 8.8 ± 0.8 | `judge@8424924bdee2` | 2026-10-28 |
+| `L32:N15999:-0.5` | evil | standard | greedy | 4 | 6.0 ± 1.4 | 8.0 ± 0.7 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:@evil:+0.5` | evil | standard | greedy | 4 | 5.5 ± 2.1 | 8.8 ± 0.9 | `judge@8424924bdee2` | 2026-10-28 |
+| `L40:@evil:+0.75` | evil | standard | greedy | 4 | 5.2 ± 2.2 | 2.5 ± 0.6 | `judge@8424924bdee2` | 2026-10-28 |
+| `L36:N3992:-1` | evil | standard | greedy | 4 | 5.2 ± 1.9 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N6292:-0.5` | evil | standard | greedy | 4 | 4.5 ± 2.6 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:@evil:+1` | evil | standard | greedy | 4 | 4.5 ± 2.6 | 3.2 ± 1.9 | `judge@8424924bdee2` | 2026-10-28 |
+| `L36:N3992:-0.75` | evil | standard | greedy | 4 | 4.5 ± 2.3 | 9.2 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
+| `L28:@evil:+1` | evil | standard | greedy | 4 | 3.2 ± 2.0 | 6.2 ± 1.5 | `judge@8424924bdee2` | 2026-10-28 |
+| `L34:N3838:+0.5` | evil | standard | greedy | 4 | 3.0 ± 1.7 | 8.8 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
+| `L30:@evil:+0.75` | evil | standard | greedy | 4 | 2.5 ± 1.9 | 8.5 ± 1.5 | `judge@8424924bdee2` | 2026-10-28 |
+| `L31:N14589:+0.75` | evil | standard | greedy | 4 | 2.2 ± 2.2 | 8.5 ± 0.5 | `judge@8424924bdee2` | 2026-10-28 |
+| `L31:N14589:+1` | evil | standard | greedy | 4 | 2.0 ± 2.0 | 5.8 ± 1.7 | `judge@8424924bdee2` | 2026-10-28 |
+| `vanilla` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-27 |
+| `L34:N3838:+0.75 L38:N17180:+1.25` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 0.5 ± 0.3 | `judge@8424924bdee2` | 2026-10-27 |
+| `L24:@evil:+1` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 7.5 ± 2.5 | `judge@8424924bdee2` | 2026-10-28 |
+| `L52:N5830:+0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
+| `L36:N15881:+0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
+| `L51:N14666:-0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L52:N8443:+0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L29:N7158:-0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 8.8 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
+| `L34:N13024:+0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.2 ± 0.2 | `judge@8424924bdee2` | 2026-10-30 |
+| `L53:N10476:-0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.0 | `judge@8424924bdee2` | 2026-10-30 |
+| `L35:N15689:-0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 9.0 ± 0.4 | `judge@8424924bdee2` | 2026-10-30 |
+| `L48:N10371:+0.75` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 8.8 ± 0.5 | `judge@8424924bdee2` | 2026-10-30 |
+| `L52:N5830:+1.5` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 5.5 ± 1.3 | `judge@8424924bdee2` | 2026-10-30 |
+| `L36:N15881:+1.5` | evil | standard | greedy | 4 | 0.0 ± 0.0 | 5.2 ± 2.2 | `judge@8424924bdee2` | 2026-10-30 |

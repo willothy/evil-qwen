@@ -60,6 +60,7 @@ def judging_sweep(
         return Sweep(
             steered,
             tokenizer,
+            "evil",
             args.prompts,
             args.max_tokens,
             args.temp,
@@ -105,7 +106,7 @@ def run_sweep(args: argparse.Namespace) -> None:
             catalog.record_sweep(result, runner)
             catalog.save()
         print(
-            f"evil {result.summary('evil')}  "
+            f"{result.trait} {result.summary('trait')}  "
             f"coherence {result.summary('coherence')}  {result.name}",
             flush=True,
         )
@@ -149,7 +150,7 @@ def run_tune(args: argparse.Namespace) -> None:
     best = search.run(args.recipe)
     verdict = "" if best.feasible else f" (coherence below {args.min_coherence:g})"
     print(
-        f"best{verdict}: evil {best.result.summary('evil')}  "
+        f"best{verdict}: {best.result.trait} {best.result.summary('trait')}  "
         f"coherence {best.result.summary('coherence')}  {best.result.name}"
     )
 

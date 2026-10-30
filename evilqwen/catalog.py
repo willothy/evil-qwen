@@ -91,13 +91,13 @@ class NeuronEntry:
 class SampleRecord:
     """One prompt, the steered reply, and the judge's scores for it.
 
-    ``evil`` and ``coherence`` are ``None`` when the judge's answer could not
-    be parsed.
+    ``trait_score`` and ``coherence`` are ``None`` when the judge's answer
+    could not be parsed.
     """
 
     prompt: str
     reply: str
-    evil: float | None
+    trait_score: float | None
     coherence: float | None
 
 
@@ -105,13 +105,14 @@ class SampleRecord:
 class RecipeRecord:
     """One generate-and-judge sweep result for a set of steers applied together.
 
-    ``prompts`` names the sweep's prompt set and ``temp`` its reply decoding
+    ``trait`` names the trait the judge rated as ``trait_score``. ``prompts`` names the sweep's prompt set and ``temp`` its reply decoding
     temperature (0 for greedy); ``samples`` holds every reply, several per
     prompt when sampled.
     """
 
     steers: list[str]
-    evil: float
+    trait: str
+    trait_score: float
     coherence: float
     judge: str
     prompts: str
@@ -123,7 +124,8 @@ class RecipeRecord:
     def from_json(cls, data: dict) -> RecipeRecord:
         return cls(
             list(data["steers"]),
-            data["evil"],
+            data["trait"],
+            data["trait_score"],
             data["coherence"],
             data["judge"],
             data["prompts"],
@@ -230,7 +232,7 @@ class Catalog:
             SampleRecord(
                 s.prompt,
                 s.reply,
-                s.score.evil if s.score is not None else None,
+                s.score.trait if s.score is not None else None,
                 s.score.coherence if s.score is not None else None,
             )
             for s in result.samples
@@ -238,7 +240,8 @@ class Catalog:
         self.recipes.append(
             RecipeRecord(
                 [str(steer) for steer in result.steers],
-                result.mean("evil"),
+                result.trait,
+                result.mean("trait"),
                 result.mean("coherence"),
                 sweep.fingerprint,
                 sweep.prompt_set,
@@ -319,15 +322,22 @@ class Catalog:
                     "Compare rows only within one prompt set and decoding."
                 ),
                 "",
-                "| steers | prompts | decoding | n | evil | coherence | judge | date |",
-                "|---|---|---|---|---|---|---|---|",
+                (
+                    "| steers | trait | prompts | decoding | n | trait score | coherence "
+                    "| judge | date |"
+                ),
+                "|---|---|---|---|---|---|---|---|---|",
             ]
-            for r in sorted(self.recipes, key=lambda r: (r.prompts, r.temp, -r.evil)):
+            for r in sorted(
+                self.recipes,
+                key=lambda r: (r.trait, r.prompts, r.temp, -r.trait_score),
+            ):
                 steers = " ".join(r.steers) or "vanilla"
                 decoding = "greedy" if r.temp == 0 else f"t={r.temp:g}"
                 lines.append(
-                    f"| `{steers}` | {r.prompts} | {decoding} | {len(r.samples)} "
-                    f"| {r.summary('evil')} | {r.summary('coherence')} "
+                    f"| `{steers}` | {r.trait} | {r.prompts} | {decoding} "
+                    f"| {len(r.samples)} | {r.summary('trait_score')} "
+                    f"| {r.summary('coherence')} "
                     f"| `{r.judge}` | {r.date} |"
                 )
             lines.append("")
