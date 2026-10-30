@@ -65,15 +65,22 @@ coherence:
 | `L34:@evil:+0.6` | 5.2 ± 0.8 | 7.2 ± 0.4 |
 
 Sampling at a higher temperature makes doses near the edge break down sooner;
-lower the L38 dose to `+0.25` if replies start looping. Every measured neuron
-and recipe, with notes on how each one behaves, is in the
-[catalog](catalog/mlx-community--Qwen3.8-27B-4bit.md).
+lower the L38 dose to `+0.25` if replies start looping.
+
+Beyond evil, the [catalog](catalog/mlx-community--Qwen3.8-27B-4bit.md)
+describes every steer worth trying, including a surveillance AI, a narcissist,
+a pirate and a fourth-wall-breaking comedian, each with a sample reply.
 
 ## Finding neurons
 
-Three commands search for and evaluate steers. All of them record their results
-in `catalog/<model>.json` (and regenerate `catalog/<model>.md`) unless given
-`--no-catalog`.
+These commands search for and evaluate steers. Each one appends its results
+to the append-only log `data/<model>/log.jsonl` unless given `--no-log`; no
+command rewrites earlier entries. `evilqwen log` prints the log as Markdown.
+
+The catalog in `catalog/<model>.md` is written by hand: once a steer is
+confirmed with `sweep`, add it there with a short description and a quote.
+Note any unexpected persona a steer produces, not only the one you searched
+for.
 
 ```sh
 # Generate replies under each config and have the unsteered model grade them.
@@ -95,8 +102,14 @@ uv run evilqwen tune --recipe "L34:N3838:0.75 L38:N17180:0.4" --temp 0.7 --sampl
 # and kind replies, forward-only.
 uv run evilqwen discover evil --top 40 --track L34:N3838
 
-# Attach an observation to a neuron.
-uv run evilqwen catalog note L32:N15999 "paranoid rather than hostile"
+# Find candidate neurons and build a direction for another trait
+# (evil, sycophantic, sarcastic, melancholic or pirate), then judge them for it.
+uv run evilqwen discover pirate --top 40
+uv run evilqwen direction pirate
+uv run evilqwen sweep --trait pirate --config L34:@pirate:0.5
+
+# Print every logged result involving one neuron.
+uv run evilqwen log --neuron L36:N3992
 ```
 
 `screen` and `verify` score steers on two terms: `evil`, the per-token
